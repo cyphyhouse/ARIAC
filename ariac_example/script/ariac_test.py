@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
-import sys
 import rospy
+import tf2_ros
 import moveit_commander as mc
 import geometry_msgs.msg
-from nist_gear.msg import Order
+from nist_gear.msg import Order, LogicalCameraImage
 from std_srvs.srv import Trigger
 from math import pi
+
+import sys
+import yaml
+import re
 
 
 def start_competition():
@@ -26,7 +30,10 @@ def callback(data):
 
 
 def get_order():
-	""" this is really janky. try to use wait for msg or smth instead if possible """
+	order = rospy.wait_for_message('/ariac/orders', Order)
+	return order
+	'''
+	# this is really janky. try to use wait for msg or smth instead if possible
 	rospy.init_node('order_sub')
 	testorder = rospy.Subscriber('/ariac/orders', Order, callback)
 	print("sub:", testorder)
@@ -34,6 +41,54 @@ def get_order():
 	return "hello"
    # order = rospy.wait_for_message('/ariac/orders', Order)
    # return testtxt
+	'''
+
+def get_parts_from_cameras():
+	tf_buffer = tf2_ros.Buffer()
+	tf_listener = tf2_ros.TransformListener(tf_buffer)
+
+	# wait for all cameras to be broadcasting
+	all_topics = rospy.get_published_topics()
+	camera_topics = [t for t, _ in all_topics if '/ariac/logical_camera' in t]
+	for topic in camera_topics:
+		rospy.wait_for_message(topic, LogicalCameraImage)
+
+	camera_frame_format = r"logical_camera_[0-9]+_(\w+)_[0-9]+_frame"
+	all_frames = yaml.safe_load(tf_buffer.all_frames_as_yaml()).keys()
+	part_frames = [f for f in all_frames if re.match(camera_frame_format, f)]
+
+	objects = []
+	for frame in part_frames:
+		try:
+			world_tf = tf_buffer.lookup_transform(
+				'world',
+				frame,
+				rospy.Time(),
+				rospy.Duration(0.1)
+			)
+			ee_tf = tf_buffer.lookup_transform(
+				frame,
+				'ee_link',
+				rospy.Time(),
+				rospy.Duration(0.1)
+			)
+		except (tf2_ros.LookupException, tf2_ros.ExtrapolationException) as e:
+			continue
+
+		# remove stale transforms
+		tf_time = rospy.Time(
+			world_tf.header.stamp.secs,
+			world_tf.header.stamp.nsecs
+		)
+		if rospy.Time.now() - tf_time > rospy.Duration(1.0):
+			continue
+
+		model = Model()
+		model.type = re.match(camera_frame_format, frame).group(1)
+		model.pose.position = world_tf.transform.translation
+		model.pose.orientation = ee_tf.transform.rotation
+		objects.append(model)
+	return objects
 
 class MoveitRunner():
 	def __init__(self, group_names, node_name='ariac_test',
@@ -53,7 +108,10 @@ class MoveitRunner():
 			self.groups[group_name] = group
 
 		self.set_preset_location()
-		self.goto_preset_location('home', 'kitting_robot') # TOGGLE 1: see goto_preset_loc func
+		#if ns == '/ariac/kitting':
+		#	self.goto_preset_location('bin8', 'kitting_robot')
+#		if ns == '/ariac/gantry':
+#			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
 
 	def set_preset_location(self):
 		locations = {}
@@ -81,6 +139,9 @@ class MoveitRunner():
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
+
+		name = 'bin8_far_battery'
+		#kitting_arm = [
 
 		self.locations = locations
 
@@ -115,24 +176,40 @@ class MoveitRunner():
 
 		print(location_pose)
 
-def print_func():
+def print_func(print_kitting):
 #	order = get_order()
 #	print("order:", order)
+	
+	if print_kitting:
+		#planning_frame = move_group.get_planning_frame()
+		planning_frame = moveit_runner_kitting.groups['kitting_arm'].get_planning_frame()
+		print("============= Planning frame: %s" % planning_frame)
+		eef_link = moveit_runner_kitting.groups['kitting_arm'].get_end_effector_link()
+		print("============= End effector link: %s" % eef_link)
+		#group_names = robot.get_group_names()
+		group_names = moveit_runner_kitting.robot.get_group_names()
+		print("============= Available Planning Groups:", group_names)
+		print("============= Printing robot state")
+		print(moveit_runner_kitting.robot.get_current_state())
+		print("============= Printing robot pose")
+		print(moveit_runner_kitting.groups['kitting_arm'].get_current_pose())
 
-	#planning_frame = move_group.get_planning_frame()
-	planning_frame = moveit_runner_kitting.groups['kitting_arm'].get_planning_frame()
-	print("============= Planning frame: %s" % planning_frame)
-	eef_link = moveit_runner_kitting.groups['kitting_arm'].get_end_effector_link()
-	print("============= End effector link: %s" % eef_link)
-	#group_names = robot.get_group_names()
-	group_names = moveit_runner_kitting.robot.get_group_names()
-	print("============= Available Planning Groups:", group_names)
-	print("============= Printing robot state")
-	print(moveit_runner_kitting.robot.get_current_state())
-	print("============= Printing robot pose")
-	print(moveit_runner_kitting.groups['kitting_arm'].get_current_pose())
+'''
+	else:
+		#planning_frame = move_group.get_planning_frame()
+		planning_frame = moveit_runner_gantry.groups['gantry_full'].get_planning_frame()
+		print("============= Planning frame: %s" % planning_frame)
+		eef_link = moveit_runner_gantry.groups['gantry_full'].get_end_effector_link()
+		print("============= End effector link: %s" % eef_link)
+		#group_names = robot.get_group_names()
+		group_names = moveit_runner_gantry.robot.get_group_names()
+		print("============= Available Planning Groups:", group_names)
+		print("============= Printing robot state")
+		print(moveit_runner_gantry.robot.get_current_state())
+		print("============= Printing robot pose")
+		print(moveit_runner_gantry.groups['gantry_full'].get_current_pose())
 	print("")
-
+'''
 def move_joint():
 	joint_goal = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
 	print("before:", joint_goal)
@@ -159,10 +236,20 @@ if __name__ == '__main__':
 	print("starting script")
 
 	kitting_group_names = ['kitting_arm']
+	gantry_group_names = ['gantry_full', 'gantry_arm', 'gantry_torso']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
+	#moveit_runner_gantry = MoveitRunner(gantry_group_names, ns='/ariac/gantry')
+
+	start_competition()
+	order = get_order()
+	#print("order: %s" % order)
+
+	all_known_parts = get_parts_from_cameras()
+	print("all known parts:", all_known_parts)
 	
 #	start_competition()
-#	print_func()
+	print_kitting = True
+	print_func(print_kitting)
 #	move_joint()
 #	change_pose()
 
