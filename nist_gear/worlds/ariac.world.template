@@ -104,120 +104,7 @@ def expand_snippet(filename, data=locals()):
         </spot>
       </light>
 
-      <!-- Models for aesthetics -->
-      <model name="CageFactory1">
-        <include>
-          <static>true</static>
-          <uri>model://cage_factory</uri>
-        </include>
-        <pose frame=''>-17.6 -0.5 0. 0 0 0</pose>
-      </model>
-      <model name="CageFactory2">
-        <include>
-          <static>true</static>
-          <uri>model://cage_factory</uri>
-        </include>
-        <pose frame=''>-17.6 4.8 0. 0 0 0</pose>
-      </model>
-      <model name="CageFactory3">
-        <include>
-          <static>true</static>
-          <uri>model://cage_factory</uri>
-        </include>
-        <pose frame=''>-17.0 -2.03 2.6 0 0 3.1415</pose>
-      </model>
-      <model name="FactoryShelf1">
-        <include>
-          <static>true</static>
-          <uri>model://factory_shelf</uri>
-        </include>
-        <pose frame=''>-2.36 -6.87 0.015890 0 0 -1.570048</pose>
-      </model>
-      <model name="FactoryShelf2">
-        <include>
-          <static>true</static>
-          <uri>model://factory_shelf</uri>
-        </include>
-        <pose frame=''>-4.715 -6.238 0.015890 0 0 1.570048</pose>
-      </model>
-      <model name="FactoryShelf3">
-        <include>
-          <static>true</static>
-          <uri>model://factory_shelf</uri>
-        </include>
-        <pose frame=''>-7.0708 -6.238 0.015890 0 0 1.570048</pose>
-      </model>
-      <model name="FactoryShelf4">
-        <include>
-          <static>true</static>
-          <uri>model://factory_shelf</uri>
-        </include>
-        <pose frame=''>-9.4262 -6.238 0.015890 0 0 1.570048</pose>
-      </model>
-      <model name="FactoryShelf5">
-        <include>
-          <static>true</static>
-          <uri>model://factory_shelf</uri>
-        </include>
-        <pose frame=''>-11.89 -6.87 0.015890 0 0 -1.570048</pose>
-      </model>
-      <model name="FactoryShelf6">
-        <include>
-          <static>true</static>
-          <uri>model://factory_shelf</uri>
-        </include>
-        <pose frame=''>-14.137 -6.238 0.015890 0 0 1.570048</pose>
-      </model>
-      <model name="Computer1">
-        <include>
-          <static>true</static>
-          <uri>model://computer_2</uri>
-        </include>
-        <pose frame=''>-0.5 6.6 0.0 0 0 0</pose>
-      </model>  
-      <model name="Computer2">
-        <include>
-          <static>true</static>
-          <uri>model://computer</uri>
-        </include>
-        <pose frame=''>-1.2 6.6 0.0 0 0 0</pose>
-      </model>
-      <!-- <model name="BoxPallet2">
-        <include>
-          <static>true</static>
-          <uri>model://box_pallets_2</uri>
-        </include>
-          <pose frame=''>-18.33 -6.65 0.01589 0 0 -0.094651</pose>
-      </model>   -->
-      <!-- <model name="BoxPallet3">
-        <include>
-          <static>true</static>
-          <uri>model://box_pallets_2</uri>
-        </include>
-        <pose frame=''>0.2729 -6.247 0.01589 0 0 -0.094651</pose>
-      </model>   -->
-      <!-- <model name="BoxPallet4">
-        <include>
-          <static>true</static>
-          <uri>model://box_pallets</uri>
-        </include>
-        <pose frame=''>2.955 -4.343 0.01589 0 0 -1.570881</pose>
-      </model>                -->
-      <!-- <model name="BoxPallet5">
-        <include>
-          <static>true</static>
-          <uri>model://box_pallets_3</uri>
-        </include>
-        <pose frame=''>-15.87 -8.663 0.01589 0 0 -0.065512</pose>
-      </model>    -->
-      <model name="BoxPallet6">
-        <include>
-          <static>true</static>
-          <uri>model://box_pallets_3</uri>
-        </include>
-        <pose frame=''>0.5554 -7.468 0.01589 0 0 -0.065512</pose>
-      </model>   
-            <model name="PartCollector">
+      <model name="PartCollector">
         <include>
           <static>true</static>
           <uri>model://trash_bin_blue</uri>
@@ -427,7 +314,7 @@ expand_snippet('rgbd_camera.sdf.template')
       <rate_modifier_topic>/ariac/population/rate_modifier</rate_modifier_topic>
       <control_topic>/ariac/population/control</control_topic>
       <state_topic>/ariac/population/state</state_topic>
-      <start_index>@(start_index)</start_index>
+      <start_index>0</start_index>
       <prefix_object_names>false</prefix_object_names>
       <loop_forever>@("true" if belt_models_loop else "false")</loop_forever>
       <frame>conveyor_belt::conveyor_belt_fixed</frame>
@@ -859,3 +746,4 @@ station = order['assembly_stations'][task_index]
 
   </world>
 </sdf>
+
