@@ -109,7 +109,9 @@ class MoveitRunner():
 
 		self.set_preset_location()
 		if ns == '/ariac/kitting':
-			self.goto_preset_location('bin8_far_battery_0', 'kitting_robot')
+			self.goto_preset_location('start', 'kitting_robot')
+			#self.goto_preset_location('bin8_far_battery_1', 'kitting_robot')
+			#self.goto_preset_location('bin8_far_battery_0', 'kitting_robot')
 #		if ns == '/ariac/gantry':
 #			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
 
@@ -141,12 +143,12 @@ class MoveitRunner():
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
 		name = 'bin8_far_battery_0'
-		kitting_arm = [-3.40, 0.16, -1.25, -0.99, -0.75, 1.51, 0.86]
+		kitting_arm = [-3.65, 0, -1.25, -0.47, -1, 1.5, 0.83]
 		gantry_torso = [0, 0, 0]	# gantry torso and arm copied over from above
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
 		name = 'bin8_far_battery_1'
-		kitting_arm = [-3.40, 0.16, -3.06, -0.99, -0.75, 1.51, 0.86]
+		kitting_arm = [-3.65, 0, -3.12, -0.47, -1, 1.5, 0.83]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
@@ -194,6 +196,9 @@ class MoveitRunner():
 			print(attempts)
 			attempts += 1
 			assert(attempts < MAX_ATTEMPTS)
+		
+		group.stop()
+		group.clear_pose_targets()
 
 		print(location_pose)
 
