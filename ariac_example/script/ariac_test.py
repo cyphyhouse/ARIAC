@@ -108,8 +108,8 @@ class MoveitRunner():
 			self.groups[group_name] = group
 
 		self.set_preset_location()
-		#if ns == '/ariac/kitting':
-		#	self.goto_preset_location('bin8', 'kitting_robot')
+		if ns == '/ariac/kitting':
+			self.goto_preset_location('bin8_far_battery_0', 'kitting_robot')
 #		if ns == '/ariac/gantry':
 #			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
 
@@ -140,8 +140,29 @@ class MoveitRunner():
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
-		name = 'bin8_far_battery'
-		#kitting_arm = [
+		name = 'bin8_far_battery_0'
+		kitting_arm = [-3.40, 0.16, -1.25, -0.99, -0.75, 1.51, 0.86]
+		gantry_torso = [0, 0, 0]	# gantry torso and arm copied over from above
+		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
+
+		name = 'bin8_far_battery_1'
+		kitting_arm = [-3.40, 0.16, -3.06, -0.99, -0.75, 1.51, 0.86]
+		gantry_torso = [0, 0, 0]
+		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
+		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
+
+		name = 'start'
+		kitting_arm = [0, 0, -1.25, 1.74, 1, -1.58, 0]
+		gantry_torso = [0, 0, 0]
+		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
+		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
+
+		# needs editing
+		name = 'conveyor'
+		kitting_arm = [0, 0, -0.47, 1.51, 0.68, 0, 0]
+		gantry_torso = [0, 0, 0]
+		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
+		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
 		self.locations = locations
 
