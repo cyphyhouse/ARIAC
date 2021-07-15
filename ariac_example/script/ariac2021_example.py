@@ -226,7 +226,7 @@ class MoveitRunner():
             self.groups[group_name] = group
 
         self.set_preset_location()
-        self.goto_preset_location('start')
+        self.goto_preset_location('start', 'gantry_robot')
 
     def set_preset_location(self):
         '''
@@ -269,19 +269,19 @@ class MoveitRunner():
         kitting_arm = [1.3458887656258813, -0.5601138939850792, -0.2804510290896989, 0, -0.8072468824120538, 1.5385783777411373, 0.8298981409931709]
         gantry_torso = [-2.48400006879773, -1.6336322021423504, 0, 3.4200004668605506]
         gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
-        locations[name] = (kitting)
+        locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
         name = 'standby'
         kitting_arm = [2.70, 3.141594222190707, -1.01, 1.88, 3.77, -1.55, 0]
         gantry_torso = [0, 0, 0]
         gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
-        locations[name] = (kitting)
+        locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
         name = 'agv4'
         kitting_arm = [1.50, 3.141594222190707, -1.01, 1.88, 3.77, -1.55, 0]
         gantry_torso = [0, 0, 0]
         gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
-        locations[name] = (kitting)
+        locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
         self.locations = locations
 
