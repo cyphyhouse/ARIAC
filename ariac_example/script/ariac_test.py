@@ -109,8 +109,8 @@ class MoveitRunner():
 
 		self.set_preset_location()
 		if ns == '/ariac/kitting':
-			self.goto_preset_location('start', 'kitting_robot')
-			#self.goto_preset_location('bin8_far_battery_1', 'kitting_robot')
+			#self.goto_preset_location('bin8_far_battery_0', 'kitting_robot')
+			self.goto_preset_location('bin8_far_battery_1', 'kitting_robot')
 			#self.goto_preset_location('bin8_far_battery_0', 'kitting_robot')
 #		if ns == '/ariac/gantry':
 #			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
@@ -148,7 +148,7 @@ class MoveitRunner():
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
 		name = 'bin8_far_battery_1'
-		kitting_arm = [-3.65, 0, -3.12, -0.47, -1, 1.5, 0.83]
+		kitting_arm = [-3.65, 0, -3.17, -0.47, -1, 1.5, 0.83]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
