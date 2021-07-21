@@ -32,16 +32,6 @@ def callback(data):
 def get_order():
 	order = rospy.wait_for_message('/ariac/orders', Order)
 	return order
-	'''
-	# this is really janky. try to use wait for msg or smth instead if possible
-	rospy.init_node('order_sub')
-	testorder = rospy.Subscriber('/ariac/orders', Order, callback)
-	print("sub:", testorder)
-	rospy.spin()
-	return "hello"
-   # order = rospy.wait_for_message('/ariac/orders', Order)
-   # return testtxt
-	'''
 
 def get_parts_from_cameras():
 	tf_buffer = tf2_ros.Buffer()
@@ -104,14 +94,13 @@ class MoveitRunner():
 			group = mc.MoveGroupCommander(group_name, 
 					   robot_description=ns+'/'+robot_description, 
 					   ns=ns)
-			group.set_goal_tolerance(0.05)	# toggle this on and off
+			group.set_goal_tolerance(0.001)	# toggle this on and off
 			self.groups[group_name] = group
 
 		self.set_preset_location()
 		if ns == '/ariac/kitting':
-			#self.goto_preset_location('bin8_far_battery_0', 'kitting_robot')
-			self.goto_preset_location('bin8_far_battery_1', 'kitting_robot')
-			#self.goto_preset_location('bin8_far_battery_0', 'kitting_robot')
+			self.goto_preset_location('start', 'kitting_robot')
+
 #		if ns == '/ariac/gantry':
 #			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
 
@@ -161,7 +150,7 @@ class MoveitRunner():
 
 		# needs editing
 		name = 'conveyor'
-		kitting_arm = [0, 0, -0.47, 1.51, 0.68, 0, 0]
+		kitting_arm = [1.08, 0, -0.64, 1.57, 0.65, 1.57, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
