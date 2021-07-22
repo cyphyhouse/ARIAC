@@ -106,8 +106,8 @@ class MoveitRunner():
 			self.groups[group_name] = group
 
 		self.set_preset_location()
-#		if ns == '/ariac/kitting':
-#			self.goto_preset_location('start', 'kitting_robot')
+		if ns == '/ariac/kitting':
+			self.goto_preset_location('conveyor', 'kitting_robot')
 
 #		if ns == '/ariac/gantry':
 #			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
@@ -158,7 +158,7 @@ class MoveitRunner():
 
 		# needs editing
 		name = 'conveyor'
-		kitting_arm = [1.08, 0, -0.68, 1.57, 0.65, 1.57, 0]
+		kitting_arm = [1.16, 0, -0.68, 1.57, 0.65, 1.57, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
@@ -215,9 +215,11 @@ class MoveitRunner():
 		num_attempts = 0
 		MAX_ATTEMPTS = 20
 		while not gm.is_object_attached() and num_attempts < MAX_ATTEMPTS:
-			joint_trajectory = JointTrajectory()
-			joint_trajectory.joint_names = ['elbow_joint', 'linear_arm_actuator_joint', 'shoulder_lift_joint', 'shoulder_pan_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
-			print(joint_trajectory)
+			cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
+			cur_joint_pose[2] += 0.005
+			moveit_runner_kitting.groups['kitting_arm'].go(cur_joint_pose, wait=True)
+			moveit_runner_kitting.groups['kitting_arm'].stop()
+			print("attempt: ", num_attempts, ", pose:", cur_joint_pose)
 			num_attempts += 1
 			rospy.sleep(1)
 	
@@ -292,6 +294,8 @@ if __name__ == '__main__':
 #		print(shipment)
 
 	move_successful = moveit_runner_kitting.move_part()
+
+	moveit_runner_kitting.goto_preset_location('start', 'kitting_robot')
 	
 #	start_competition()
 	print_kitting = True
