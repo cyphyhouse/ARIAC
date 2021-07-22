@@ -4,8 +4,11 @@ import rospy
 import tf2_ros
 import moveit_commander as mc
 import geometry_msgs.msg
-from nist_gear.msg import Order, LogicalCameraImage
+from nist_gear.msg import Order, Model, LogicalCameraImage, VacuumGripperState
+from trajectory_msgs.msg import JointTrajectory
+
 from std_srvs.srv import Trigger
+from nist_gear.srv import VacuumGripperControl
 from math import pi
 
 import sys
@@ -28,6 +31,9 @@ def callback(data):
 #	print('------------------------------')
 #	print(data.kitting_shipments)
 
+def callback_gripper(data):
+	print("hereherjewjdflaksjfkldsajflksdjfkldsjflkdsajflkds")
+	rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
 
 def get_order():
 	order = rospy.wait_for_message('/ariac/orders', Order)
@@ -43,7 +49,8 @@ def get_parts_from_cameras():
 	for topic in camera_topics:
 		rospy.wait_for_message(topic, LogicalCameraImage)
 
-	camera_frame_format = r"logical_camera_[0-9]+_(\w+)_[0-9]+_frame"
+#	camera_frame_format = r"logical_camera_[0-9]+_(\w+)_[0-9]+_frame"
+	camera_frame_format = r"^logical_camera"
 	all_frames = yaml.safe_load(tf_buffer.all_frames_as_yaml()).keys()
 	part_frames = [f for f in all_frames if re.match(camera_frame_format, f)]
 
@@ -74,6 +81,7 @@ def get_parts_from_cameras():
 			continue
 
 		model = Model()
+		print(re.match(camera_frame_format, frame).group(0))
 		model.type = re.match(camera_frame_format, frame).group(1)
 		model.pose.position = world_tf.transform.translation
 		model.pose.orientation = ee_tf.transform.rotation
@@ -98,8 +106,8 @@ class MoveitRunner():
 			self.groups[group_name] = group
 
 		self.set_preset_location()
-		if ns == '/ariac/kitting':
-			self.goto_preset_location('start', 'kitting_robot')
+#		if ns == '/ariac/kitting':
+#			self.goto_preset_location('start', 'kitting_robot')
 
 #		if ns == '/ariac/gantry':
 #			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
@@ -150,7 +158,7 @@ class MoveitRunner():
 
 		# needs editing
 		name = 'conveyor'
-		kitting_arm = [1.08, 0, -0.64, 1.57, 0.65, 1.57, 0]
+		kitting_arm = [1.08, 0, -0.68, 1.57, 0.65, 1.57, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
@@ -186,10 +194,33 @@ class MoveitRunner():
 			attempts += 1
 			assert(attempts < MAX_ATTEMPTS)
 		
-		group.stop()
-		group.clear_pose_targets()
+#		group.stop()
+#		group.clear_pose_targets()
 
 		print(location_pose)
+
+	def move_part(self):
+		gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
+
+		self.goto_preset_location('conveyor', 'kitting_robot')
+		gm.activate_gripper()
+
+		pub = rospy.Publisher('/ariac/kitting/kitting_arm_controller/command', JointTrajectory, queue_size=10)
+#		rospy.init_node('talker', anonymous=True)
+
+		# get initial shoulder_lift_joint position
+		slj_pos = moveit_runner_kitting.robot.get_current_state().joint_state.position
+#		slj_pos = moveit_runner_kitting.robot.get_current_state()
+		print(slj_pos)
+		num_attempts = 0
+		MAX_ATTEMPTS = 20
+		while not gm.is_object_attached() and num_attempts < MAX_ATTEMPTS:
+			joint_trajectory = JointTrajectory()
+			joint_trajectory.joint_names = ['elbow_joint', 'linear_arm_actuator_joint', 'shoulder_lift_joint', 'shoulder_pan_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+			print(joint_trajectory)
+			num_attempts += 1
+			rospy.sleep(1)
+	
 
 def print_func(print_kitting):
 #	order = get_order()
@@ -225,27 +256,22 @@ def print_func(print_kitting):
 		print(moveit_runner_gantry.groups['gantry_full'].get_current_pose())
 	print("")
 '''
-def move_joint():
-	joint_goal = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
-	print("before:", joint_goal)
-	joint_goal[3] = -0.7
-	moveit_runner_kitting.groups['kitting_arm'].go(joint_goal, wait=True)
-	moveit_runner_kitting.groups['kitting_arm'].stop()
-	print("after:", joint_goal)
 
-def change_pose():
-	pose_goal = geometry_msgs.msg.Pose()
-	print("pose:", pose_goal)
-	pose_goal.orientation.w = -0.6
-	pose_goal.position.x = -4.0
-	pose_goal.position.y = 0.0
-	pose_goal.position.z = 1.0
-	print("pose goal:", pose_goal)
-	moveit_runner_kitting.groups['kitting_arm'].set_pose_target(pose_goal)
-	plan = moveit_runner_kitting.groups['kitting_arm'].go(wait=True)
-	moveit_runner_kitting.groups['kitting_arm'].stop()
-	moveit_runner_kitting.groups['kitting_arm'].clear_pose_targets()
+class GripperManager():
+	def __init__(self, ns):
+		self.ns = ns
+	
+	def activate_gripper(self):
+		rospy.wait_for_service(self.ns + 'control')
+		rospy.ServiceProxy(self.ns + 'control', VacuumGripperControl)(True)
 
+	def deactivate_gripper(self):
+		rospy.wait_for_service(self.ns + 'control')
+		rospy.ServiceProxy(self.ns + 'control', VacuumGripperControl)(False)
+
+	def is_object_attached(self):
+		status = rospy.wait_for_message(self.ns + 'state', VacuumGripperState)
+		return status.attached
 
 if __name__ == '__main__':
 	print("starting script")
@@ -259,15 +285,17 @@ if __name__ == '__main__':
 	order = get_order()
 	#print("order: %s" % order)
 
-	all_known_parts = get_parts_from_cameras()
-	print("all known parts:", all_known_parts)
+#	all_known_parts = get_parts_from_cameras()
+#	print("all known parts:", all_known_parts)
+
+#	for shipment in order.kitting_shipments:
+#		print(shipment)
+
+	move_successful = moveit_runner_kitting.move_part()
 	
 #	start_competition()
 	print_kitting = True
-	print_func(print_kitting)
-#	move_joint()
-#	change_pose()
+#	print_func(print_kitting)
 
-	
 	
 	print("script finished")
