@@ -21,6 +21,11 @@ def start_competition():
 	rospy.wait_for_service('/ariac/start_competition')
 	rospy.ServiceProxy('/ariac/start_competition', Trigger)()
 
+def move_agvs(agv, dest):
+	
+	rospy.wait_for_service('/ariac/' + agv + '/to_' + dest)
+	rospy.ServiceProxy('/ariac/' + agv + '/to_' + dest, Trigger)()
+
 def callback(data):
 	print('first')
 	rospy.loginfo(data.kitting_shipments[0].products[0].pose.position.x)
@@ -106,11 +111,6 @@ class MoveitRunner():
 			self.groups[group_name] = group
 
 		self.set_preset_location()
-		if ns == '/ariac/kitting':
-			self.goto_preset_location('conveyor', 'kitting_robot')
-
-#		if ns == '/ariac/gantry':
-#			self.goto_preset_location('bin8', 'gantry_robot') # TOGGLE 1: see goto_preset_loc func
 
 	def set_preset_location(self):
 		locations = {}
@@ -133,8 +133,26 @@ class MoveitRunner():
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
-		name = 'agv4'
+		name = 'agv1'
+		kitting_arm = [4.8, 3.141594222190707, -1.01, 1.88, 3.77, -1.55, 0]
+		gantry_torso = [0, 0, 0]
+		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
+		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
+
+		name = 'agv2'
 		kitting_arm = [1.50, 3.141594222190707, -1.01, 1.88, 3.77, -1.55, 0]
+		gantry_torso = [0, 0, 0]
+		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
+		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
+
+		name = 'agv3'
+		kitting_arm = [-1.19, 3.141594222190707, -1.01, 1.88, 3.77, -1.55, 0]
+		gantry_torso = [0, 0, 0]
+		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
+		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
+
+		name = 'agv4'
+		kitting_arm = [-4.55, 3.141594222190707, -1.01, 1.88, 3.77, -1.55, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
@@ -156,9 +174,8 @@ class MoveitRunner():
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
-		# needs editing
 		name = 'conveyor'
-		kitting_arm = [1.16, 0, -0.68, 1.57, 0.65, 1.57, 0]
+		kitting_arm = [1.50, 0, -0.68, 1.57, 0.65, 1.57, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
@@ -179,13 +196,6 @@ class MoveitRunner():
 		if robot_type == 'kitting_robot':
 			location_pose = kitting_arm
 		print(location_pose)
-		
-		'''
-		location_pose[3] = 1.5
-		print(location_pose)
-		tmp_loc = self.locations[location_name]
-		print("tmp:", tmp_loc)
-		'''
 
 		MAX_ATTEMPTS = 5
 		attempts = 0
@@ -199,19 +209,10 @@ class MoveitRunner():
 
 		print(location_pose)
 
-	def move_part(self):
-		gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
-
+	def move_part(self, gm):
 		self.goto_preset_location('conveyor', 'kitting_robot')
 		gm.activate_gripper()
 
-		pub = rospy.Publisher('/ariac/kitting/kitting_arm_controller/command', JointTrajectory, queue_size=10)
-#		rospy.init_node('talker', anonymous=True)
-
-		# get initial shoulder_lift_joint position
-		slj_pos = moveit_runner_kitting.robot.get_current_state().joint_state.position
-#		slj_pos = moveit_runner_kitting.robot.get_current_state()
-		print(slj_pos)
 		num_attempts = 0
 		MAX_ATTEMPTS = 20
 		while not gm.is_object_attached() and num_attempts < MAX_ATTEMPTS:
@@ -225,9 +226,6 @@ class MoveitRunner():
 	
 
 def print_func(print_kitting):
-#	order = get_order()
-#	print("order:", order)
-	
 	if print_kitting:
 		#planning_frame = move_group.get_planning_frame()
 		planning_frame = moveit_runner_kitting.groups['kitting_arm'].get_planning_frame()
@@ -293,13 +291,18 @@ if __name__ == '__main__':
 #	for shipment in order.kitting_shipments:
 #		print(shipment)
 
-	move_successful = moveit_runner_kitting.move_part()
+	# For controlling the vacuum gripper
+	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
 	moveit_runner_kitting.goto_preset_location('start', 'kitting_robot')
+	moveit_runner_kitting.goto_preset_location('conveyor', 'kitting_robot')
 	
-#	start_competition()
-	print_kitting = True
-#	print_func(print_kitting)
+	# No longer using path planning when near battery
+	move_successful = moveit_runner_kitting.move_part(gm)
 
+	moveit_runner_kitting.goto_preset_location('agv1', 'kitting_robot')
+	gm.deactivate_gripper()
+
+	move_agvs('agv1', 'as1')
 	
 	print("script finished")
