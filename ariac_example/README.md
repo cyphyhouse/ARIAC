@@ -24,9 +24,23 @@ rosrun rqt_gui rqt_gui robot_description:=/ariac/kitting/robot_description
 ## How to control the ktting robot using the test script
 1. Open up a new terminal and resource the setup file (command in step 2)
 2. Open up the test script (cd ariac_ws/src/ARIAC/ariac_example/script/ariac_test.py)
-3. Modify the first argument of line 112 (self.goto_preset_location('start', 'kitting_robot')) to either 'start', 'home', 'bin8', etc. To see all preset locations, scroll down one function.
+3. Modify the first argument of the function 'goto_preset_location' to either 'start', 'home', 'bin8', etc. To see all preset locations, scroll down one function.
 4. Back in terminal, you can run the script with
 ```
 rosrun ariac_example ariac_test.py
 ```
-**Keep in mind a lot of this stuff is still kinda buggy.
+## How to have the kitting robot pickup batteries from the conveyor belt and place it on an agv
+1. Start the competition to get the batteries to appear on the conveyor belt (might take a minute). Make sure you have the setup file sourced. Run 
+```
+rosservice call /ariac/start_competition
+```
+2. After the green batteries begin to show up on the belt, manually stop the belt with the following command:
+```
+rosservice call /ariac/conveyor/control "power: 0"
+```
+At this point, we haven't written functionality for the robot to pick batteries off of a moving conveyor belt. That functionality may be added in the next few weeks or so.
+3. Click on the green battery you would like to pick up, and in Gazebo check its pose. Take the y-value and subtract 0.16. Set this as the first value in kitting_arm array under 'conveyor' in the set_preset_location function.
+4. If you would like to modify which agv and which station it will be delivered to, modify these arguments in the main function call in the last goto_preset_location function call and the move_agvs function call.
+
+## Also be sure to have the rqt_gui shut off before attempting to run any of this script.
+
