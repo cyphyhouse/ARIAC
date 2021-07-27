@@ -55,29 +55,19 @@ class MoveitRunner():
 		arm = [0.0, -0.525, 0.525, 0, pi/2, 0]
 		locations[name] = (gantry, arm)
 
+		name = 'agv2_to_as1_wp1'
+		gantry = [-3.6, -3.36, pi]
+		arm = [0.0, -pi/2, pi/2, 0, pi/2, 0]
+		locations[name] = (gantry, arm)
+
 		name = 'as1'
 		gantry = [-4.0, -3.0, pi/2]
 		arm = [0.0, -2.13, 1.9, 0.25, 1.55, 0.83]
 		locations[name] = (gantry, arm)
 
-		name = 'agv2_to_as1_1'
-		gantry = [-4.6, -0.6, 0]
-		arm = None
-		locations[name] = (gantry, arm)
-
-		name = 'agv2_to_as1_2'
-		gantry = [-4.6, -2.0, 0]
-		arm = None
-		locations[name] = (gantry, arm)
-
-		name = 'as1_agv1'
-		gantry = [-3.2, -4.0, 0]
-		arm = None
-		locations[name] = (gantry, arm)
-
-		name = 'as1_agv2'
-		gantry = [-3.2, -0.6, 0]
-		arm = None
+		name = 'as1_drop_battery'
+		gantry = [-4.12, -3.36, pi/2]
+		arm = [0.0, -1.75, 1.75, 0, 1.55, pi/2]
 		locations[name] = (gantry, arm)
 
 		self.locations = locations
@@ -145,13 +135,22 @@ if __name__ == '__main__':
 	# Gripper
 	gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
-	#moveit_runner_gantry.goto_preset_location('agv2_above')
+	moveit_runner_gantry.goto_preset_location('agv2_above')
+
+	# Subscribe to topic to listen to signal of when to start movement - janky solution
+	rospy.init_node('gantry_sub', anonymous=True)
+	rospy.spin()
+
+	moveit_runner_gantry.goto_preset_location('pickup_agv2')
 
 	# No longer using path planning when near battery
 	move_successful = moveit_runner_gantry.move_part(gm)
 
 	# Go to Assembly Station
-	moveit_runner_gantry.goto_preset_location('as1')
+	moveit_runner_gantry.goto_preset_location('agv2_to_as1_wp1')
+	moveit_runner_gantry.goto_preset_location('as1_drop_battery')
+
+	gm.deactivate_gripper()
 
 
 	

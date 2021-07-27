@@ -175,7 +175,7 @@ class MoveitRunner():
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
 		name = 'conveyor'
-		kitting_arm = [1.54, 0, -0.68, 1.57, 0.65, 1.57, 0]
+		kitting_arm = [1.44, 0, -0.68, 1.57, 0.65, 1.57, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
@@ -306,6 +306,17 @@ if __name__ == '__main__':
 	rospy.sleep(2.0)	# to make sure the battery is firmly on AGV before moving
 
 	move_agvs('agv2', 'as1')
+
+	# Publish message to topic to signal other script to run - not working atm
+	pub = rospy.Publisher('start_gantry', String, queue_size=10)
+	rospy.init_node('talker', anonymous=True)
+	rate = rospy.Rate(2)
+	num_msgs = 0
+	while num_msgs < 10:
+		msg_to_topic = "Start Gantry"
+		rospy.loginfo(msg_to_topic)
+		pub.publish(msg_to_topic)
+		rate.sleep()
 
 	print("script finished")
 
