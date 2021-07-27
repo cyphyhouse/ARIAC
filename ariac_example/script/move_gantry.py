@@ -19,8 +19,8 @@ class MoveitRunner():
 		for group_name in group_names:
 			group = mc.MoveGroupCommander(group_name, 
 					   robot_description=ns+'/'+robot_description, 
-					   ns=ns)
-			group.set_goal_tolerance(0.001)	# toggle this on and off
+					   ns=ns, wait_for_servers=30.0)
+			group.set_goal_tolerance(0.001)
 			self.groups[group_name] = group
 
 		self.set_preset_location()
