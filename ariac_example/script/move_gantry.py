@@ -43,17 +43,21 @@ class MoveitRunner():
 		arm = [0.0, -2.13, 1.9, 0.25, 1.55, 0.83]
 		locations[name] = (gantry, arm)
 
+		name = 'agv2_above'
+		gantry = [-4.0, -3.0, pi]
+		arm = [0.0, -2.13, 1.9, 0.25, 1.55, 0.83]
+
 		name = 'as1'
 		gantry = [-4.0, -3.0, pi/2]
 		arm = [0.0, -2.13, 1.9, 0.25, 1.55, 0.83]
 		locations[name] = (gantry, arm)
 
-		name = 'agv1_to_as1_1'
+		name = 'agv2_to_as1_1'
 		gantry = [-4.6, -0.6, 0]
 		arm = None
 		locations[name] = (gantry, arm)
 
-		name = 'agv1_to_as1_2'
+		name = 'agv2_to_as1_2'
 		gantry = [-4.6, -2.0, 0]
 		arm = None
 		locations[name] = (gantry, arm)
@@ -99,4 +103,5 @@ if __name__ == '__main__':
 	# an instance of MoveitRunner for the gantry robot
 	moveit_runner_gantry = MoveitRunner(gantry_group_names, ns='/ariac/gantry')
 
-	moveit_runner_gantry.goto_preset_location('as1')
+	moveit_runner_gantry.goto_preset_location('agv2_above')
+

@@ -37,7 +37,7 @@ def callback(data):
 #	print(data.kitting_shipments)
 
 def callback_gripper(data):
-	print("hereherjewjdflaksjfkldsajflksdjfkldsjflkdsajflkds")
+	print("here")
 	rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
 
 def get_order():
@@ -175,7 +175,7 @@ class MoveitRunner():
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
 		name = 'conveyor'
-		kitting_arm = [1.50, 0, -0.68, 1.57, 0.65, 1.57, 0]
+		kitting_arm = [1.1388, 0, -0.68, 1.57, 0.65, 1.57, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
@@ -195,7 +195,6 @@ class MoveitRunner():
 		print(location_pose)
 		if robot_type == 'kitting_robot':
 			location_pose = kitting_arm
-		print(location_pose)
 
 		MAX_ATTEMPTS = 5
 		attempts = 0
@@ -290,6 +289,7 @@ if __name__ == '__main__':
 
 #	for shipment in order.kitting_shipments:
 #		print(shipment)
+	
 
 	# For controlling the vacuum gripper
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
@@ -300,9 +300,12 @@ if __name__ == '__main__':
 	# No longer using path planning when near battery
 	move_successful = moveit_runner_kitting.move_part(gm)
 
-	moveit_runner_kitting.goto_preset_location('agv1', 'kitting_robot')
+	moveit_runner_kitting.goto_preset_location('agv2', 'kitting_robot')
 	gm.deactivate_gripper()
 
-	move_agvs('agv1', 'as1')
-	
+	rospy.sleep(2.0)	# to make sure the battery is firmly on AGV before moving
+
+	move_agvs('agv2', 'as1')
+
 	print("script finished")
+
