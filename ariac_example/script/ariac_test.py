@@ -175,7 +175,7 @@ class MoveitRunner():
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)
 
 		name = 'conveyor'
-		kitting_arm = [1.1388, 0, -0.68, 1.57, 0.65, 1.57, 0]
+		kitting_arm = [1.54, 0, -0.68, 1.57, 0.65, 1.57, 0]
 		gantry_torso = [0, 0, 0]
 		gantry_arm = [0.0, -pi/4, pi/2, -pi/4, pi/2, 0]
 		locations[name] = (kitting_arm, gantry_torso, gantry_arm)

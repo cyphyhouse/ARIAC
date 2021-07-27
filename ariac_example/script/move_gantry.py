@@ -3,6 +3,8 @@
 import rospy
 import moveit_commander as mc
 from math import pi
+from nist_gear.msg import VacuumGripperState
+from nist_gear.srv import VacuumGripperControl
 
 import sys
 
@@ -44,8 +46,14 @@ class MoveitRunner():
 		locations[name] = (gantry, arm)
 
 		name = 'agv2_above'
-		gantry = [-4.0, -3.0, pi]
-		arm = [0.0, -2.13, 1.9, 0.25, 1.55, 0.83]
+		gantry = [-3.6, -2.45, pi]
+		arm = [0.0, -2.13, 1.9, 0.25, 1.55, 0]
+		locations[name] = (gantry, arm)
+
+		name = 'pickup_agv2'
+		gantry = [-3.6, -2.15, pi]
+		arm = [0.0, -0.525, 0.525, 0, pi/2, 0]
+		locations[name] = (gantry, arm)
 
 		name = 'as1'
 		gantry = [-4.0, -3.0, pi/2]
@@ -94,6 +102,37 @@ class MoveitRunner():
 
 		print(location_pose)
 
+	def move_part(self, gm):
+		self.goto_preset_location('pickup_agv2')
+		gm.activate_gripper()
+
+		num_attempts = 0
+		MAX_ATTEMPTS = 20
+		while not gm.is_object_attached() and num_attempts < MAX_ATTEMPTS:
+			cur_joint_pose = moveit_runner_gantry.groups['gantry_full'].get_current_joint_values()
+			cur_joint_pose[4] += 0.005	# shoulder lift joint
+			cur_joint_pose[5] -= 0.005  # elbow joint
+			moveit_runner_gantry.groups['gantry_full'].go(cur_joint_pose, wait=True)
+			moveit_runner_gantry.groups['gantry_full'].stop()
+			print("attempt: ", num_attempts, ", pose:", cur_joint_pose)
+			num_attempts += 1
+			rospy.sleep(1)
+
+class GripperManager():
+	def __init__(self, ns):
+		self.ns = ns
+	
+	def activate_gripper(self):
+		rospy.wait_for_service(self.ns + 'control')
+		rospy.ServiceProxy(self.ns + 'control', VacuumGripperControl)(True)
+
+	def deactivate_gripper(self):
+		rospy.wait_for_service(self.ns + 'control')
+		rospy.ServiceProxy(self.ns + 'control', VacuumGripperControl)(False)
+
+	def is_object_attached(self):
+		status = rospy.wait_for_message(self.ns + 'state', VacuumGripperState)
+		return status.attached
 
 if __name__ == '__main__':
 	
@@ -103,5 +142,17 @@ if __name__ == '__main__':
 	# an instance of MoveitRunner for the gantry robot
 	moveit_runner_gantry = MoveitRunner(gantry_group_names, ns='/ariac/gantry')
 
-	moveit_runner_gantry.goto_preset_location('agv2_above')
+	# Gripper
+	gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
+
+	#moveit_runner_gantry.goto_preset_location('agv2_above')
+
+	# No longer using path planning when near battery
+	move_successful = moveit_runner_gantry.move_part(gm)
+
+	# Go to Assembly Station
+	moveit_runner_gantry.goto_preset_location('as1')
+
+
+	
 
