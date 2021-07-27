@@ -11,7 +11,7 @@ class MoveitRunner():
 				 ns='', robot_description='robot_description'):
 
 		mc.roscpp_initialize(sys.argv)
-		rospy.init_node('ariac_test', anonymous=True)
+		rospy.init_node(node_name, anonymous=True)
 
 		self.robot = mc.RobotCommander(ns+'/'+robot_description, ns)
 		self.scene = mc.PlanningSceneInterface(ns)
@@ -46,6 +46,16 @@ class MoveitRunner():
 		name = 'as1'
 		gantry = [-4.0, -3.0, pi/2]
 		arm = [0.0, -2.13, 1.9, 0.25, 1.55, 0.83]
+		locations[name] = (gantry, arm)
+
+		name = 'agv1_to_as1_1'
+		gantry = [-4.6, -0.6, 0]
+		arm = None
+		locations[name] = (gantry, arm)
+
+		name = 'agv1_to_as1_2'
+		gantry = [-4.6, -2.0, 0]
+		arm = None
 		locations[name] = (gantry, arm)
 
 		name = 'as1_agv1'
@@ -89,4 +99,4 @@ if __name__ == '__main__':
 	# an instance of MoveitRunner for the gantry robot
 	moveit_runner_gantry = MoveitRunner(gantry_group_names, ns='/ariac/gantry')
 
-	moveit_runner_gantry.goto_preset_location('start')
+	moveit_runner_gantry.goto_preset_location('as1')
