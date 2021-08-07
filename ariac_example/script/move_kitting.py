@@ -2,9 +2,31 @@
 
 import rospy
 import tf2_ros
+import moveit_commander as mc
+
 import geometry_msgs.msg
 
+import sys
+
+class MoveitRunner():
+	def __init__(self, group_names, node_name='move_kitting',
+				 ns='', robot_description='robot_description'):
+
+		mc.roscpp_initialize(sys.argv)
+		rospy.init_node('move_kitting', anonymous=True)
+
+		self.robot = mc.RobotCommander(ns+'/'+robot_description, ns)
+		self.scene = mc.PlanningSceneInterface(ns)
+		self.groups = {}
+		for group_name in group_names:
+			group = mc.MoveGroupCommander(group_name, 
+					   robot_description=ns+'/'+robot_description, 
+					   ns=ns)
+			group.set_goal_tolerance(0.001)	# toggle this on and off
+			self.groups[group_name] = group
+
 if __name__ == '__main__':
+	'''
 	rospy.init_node('move_kitting')
 	
 	tfBuffer = tf2_ros.Buffer()
@@ -29,10 +51,15 @@ if __name__ == '__main__':
 	world_pose = tfBuffer.transform(local_pose, 'world')
 	print(world_pose)
 	rate.sleep()
+	'''
 
-'''
 	kitting_group_names = ['kitting_arm']
-	#moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
+	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
+
+	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
+	kitting_arm.set_end_effector_link("vacuum_gripper_link")
+
+	print(kitting_arm.get_current_pose())
 
 	# Get user input
 	valid = False
@@ -46,6 +73,5 @@ if __name__ == '__main__':
 		
 	z = input("Enter the desired z-value for the kitting robot: ")
 	print("Moving to (%s, %s, %s)" % (x, y, z))
-'''
 
 
