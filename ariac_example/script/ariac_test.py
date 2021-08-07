@@ -282,6 +282,7 @@ if __name__ == '__main__':
 
 	kitting_group = moveit_runner_kitting.groups['kitting_arm']
 	print("old ee link:", kitting_group.get_end_effector_link())
+	kitting_group.set_end_effector_link("vacuum_gripper_link")
 	print("new ee link:", kitting_group.get_end_effector_link())
 	print_func(True)
 	exit()
