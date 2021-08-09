@@ -50,4 +50,11 @@ if __name__ == '__main__':
 	z = input("Enter the desired z-value for the kitting robot: ")
 	print("Moving to (%s, %s, %s)" % (x, y, z))
 
+	# Move linear arm actuator
+	cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
+	cur_joint_pose[0] = y - 0.1616191
+	moveit_runner_kitting.groups['kitting_arm'].go(cur_joint_pose, wait=True)
+	moveit_runner_kitting.groups['kitting_arm'].stop()
+		
+
 
