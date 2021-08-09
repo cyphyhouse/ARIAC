@@ -5,6 +5,7 @@ import tf2_ros
 import moveit_commander as mc
 
 import geometry_msgs.msg
+from tf.transformations import euler_from_quaternion
 
 import sys
 
@@ -26,32 +27,6 @@ class MoveitRunner():
 			self.groups[group_name] = group
 
 if __name__ == '__main__':
-	'''
-	rospy.init_node('move_kitting')
-	
-	tfBuffer = tf2_ros.Buffer()
-	listener = tf2_ros.TransformListener(tfBuffer)
-
-	frame = 'gantry_arm_vacuum_gripper_link'
-	rate = rospy.Rate(1.0)
-	while not rospy.is_shutdown():
-		print('here')
-		try:
-			trans = tfBuffer.lookup_transform('world', frame, rospy.Time(), rospy.Duration(1.0))
-		except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-			print(e)
-			continue
-
-	# Transform the pose from the specified frame to the world frame
-	local_pose = geometry_msgs.msg.PoseStamped()
-	local_pose.header.frame_id = frame
-	local_pose.pose.position.x = 0.15
-	local_pose.pose.position.y = 0.15
-
-	world_pose = tfBuffer.transform(local_pose, 'world')
-	print(world_pose)
-	rate.sleep()
-	'''
 
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
@@ -59,7 +34,8 @@ if __name__ == '__main__':
 	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 
-	print(kitting_arm.get_current_pose())
+	orientation_k = kitting_arm.get_current_pose().pose.orientation
+	(roll, pitch, yaw) = euler_from_quaternion([orientation_k.x, orientation_k.y, orientation_k.z, orientation_k.w])
 
 	# Get user input
 	valid = False
