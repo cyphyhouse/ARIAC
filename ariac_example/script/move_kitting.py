@@ -11,17 +11,21 @@ from tf.transformations import euler_from_quaternion
 import sys
 
 def find_alphabeta(x, z):
-	r1 = 0.573 # length of upper arm link (radius of its range of motion)
-	r2 = 0.400 # length of forearm link
+	r1 = 0.61215	# range of motion of shoulder lift joint
+	r2 = 0.57235	# range of motion of elbow joint
+	#r1 = 0.573 # length of upper arm link (radius of its range of motion)
+	#r2 = 0.400 # length of forearm link
 
-	ab = euclidean_dist(-1.3, 1.127, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
+	ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
 	beta = law_cosines_gamma(r1, r2, ab)
 
 	# alpha = alpha' + alpha'' (check proof)
 	a1 = law_cosines_gamma(r1, ab, r2)
 	a2 = math.acos((x+1.3)/ab)
 	alpha = a1 + a2
-	alpha = -alpha	# moving shoulder joint up is negative alpha direction
+	alpha = -alpha			# moving shoulder joint up is negative alpha direction
+	beta = math.pi - beta	# we want complementary (beta is angle b/t two links, elbow joint is comp of this)
+	# the above might need additional changes (e.g. abs val, etc) when trying to grab stuff on other side
 
 	return (alpha, beta)
 
@@ -75,11 +79,11 @@ if __name__ == '__main__':
 	print("Moving to (%s, %s, %s)" % (x, y, z))
 
 	# Finding alpha (shoulder lift angle) and beta (elbow joint angle)
-	alpha, beta = find_alphabeta(x, z)
+	alpha, beta = find_alphabeta(x-0.1158, z+0.1)	# adjust these values to account for wrist lengths
+	# alpha, beta = find_alphabeta(x, z)
 
-	print(alpha)
-	print(beta)
-	exit()
+	print("alpha: ", alpha)
+	print("beta: ", beta)
 
 	# linear arm actuator
 	cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
@@ -90,6 +94,13 @@ if __name__ == '__main__':
 		cur_joint_pose[1] = 3.14
 	else:
 		cur_joint_pose[1] = 0
+
+	# shoudler lift (alpha) and elbow (beta)
+	cur_joint_pose[2] = alpha
+	cur_joint_pose[3] = beta
+
+	# to get flat ee: w1 = - shoulder lift - elbow - pi/2
+	cur_joint_pose[4] = -1*cur_joint_pose[2] - cur_joint_pose[3] - math.pi/2
 
 	moveit_runner_kitting.groups['kitting_arm'].go(cur_joint_pose, wait=True)
 	moveit_runner_kitting.groups['kitting_arm'].stop()
