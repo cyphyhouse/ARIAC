@@ -36,6 +36,9 @@ def euclidean_dist(x1, z1, x2, z2):
 def law_cosines_gamma(a, b, c):
 	return math.acos((a**2 + b**2 - c**2)/(2*a*b))
 
+def bounds_checking(x, z):
+	return True if euclidean_dist(x-0.1158, z+0.1, -1.3, 1.12725) <= 1.1845 else False
+
 
 class MoveitRunner():
 	def __init__(self, group_names, node_name='move_kitting',
@@ -66,16 +69,22 @@ if __name__ == '__main__':
 	(roll, pitch, yaw) = euler_from_quaternion([orientation_k.x, orientation_k.y, orientation_k.z, orientation_k.w])
 
 	# Get user input
-	valid = False
 	x = input("Enter the desired x-value for the kitting robot: ")
-	valid = False
-	while not valid:
+	valid_y = False
+	while not valid_y:
 		y = input("Enter the desired y-value for the kitting robot: ")
 		if y >= -4.8 and y <= 4.8:
 			break
 		print("y-value must in range (-4.8, 4.8)")
 		
 	z = input("Enter the desired z-value for the kitting robot: ")
+	valid_xz = bounds_checking(x, z)
+	while not valid_xz:
+		print("x and z values are out of the range of motion for the kitting arm. x-z values must be within 1.18 from (x = -1.3, z = 1.12725). Try again")
+		x = input("Enter the desired x-value for the kitting robot: ")
+		z = input("Enter the desired z-value for the kitting robot: ")
+		valid_xz = bounds_checking(x, z)
+
 	print("Moving to (%s, %s, %s)" % (x, y, z))
 
 	# Finding alpha (shoulder lift angle) and beta (elbow joint angle)
