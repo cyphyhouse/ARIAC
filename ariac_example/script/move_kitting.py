@@ -21,7 +21,7 @@ def find_alphabeta(x, z):
 
 	# alpha = alpha' + alpha'' (check proof)
 	a1 = law_cosines_gamma(r1, ab, r2)
-	a2 = math.acos((x+1.3)/ab)
+	a2 = math.acos((abs(x+1.3))/ab)
 	alpha = a1 + a2
 	alpha = -alpha			# moving shoulder joint up is negative alpha direction
 	beta = math.pi - beta	# we want complementary (beta is angle b/t two links, elbow joint is comp of this)
@@ -87,16 +87,24 @@ if __name__ == '__main__':
 
 	print("Moving to (%s, %s, %s)" % (x, y, z))
 
+	conveyor_side = True if x >= -1.3 else False
+
 	# Finding alpha (shoulder lift angle) and beta (elbow joint angle)
-	alpha, beta = find_alphabeta(x-0.1158, z+0.1)	# adjust these values to account for wrist lengths
-	# alpha, beta = find_alphabeta(x, z)
+	if conveyor_side:
+		alpha, beta = find_alphabeta(x-0.1158, z+0.1)	# adjust these values to account for wrist lengths
+	else:
+		alpha, beta = find_alphabeta(x+0.1154, z+0.1)
 
 	print("alpha: ", alpha)
 	print("beta: ", beta)
 
-	# linear arm actuator
 	cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
-	cur_joint_pose[0] = y - 0.1616191
+
+	# linear arm actuator
+	if not conveyor_side:
+		cur_joint_pose[0] = y + 0.1616191
+	else:
+		cur_joint_pose[0] = y - 0.1616191
 
 	# shoulder pan joint
 	if x < -1.3:
