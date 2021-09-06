@@ -125,67 +125,6 @@ if __name__ == '__main__':
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 
 	move_success = moveit_runner_kitting.goto_pose(-1.15, 0, 2)
-	print("Move success: %s" % move_success)
-
-'''
-	# Get user input
-	x = input("Enter the desired x-value for the kitting robot: ")
-	valid_y = False
-	while not valid_y:
-		y = input("Enter the desired y-value for the kitting robot: ")
-		if y >= -4.8 and y <= 4.8:
-			break
-		print("y-value must in range (-4.8, 4.8)")
-		
-	z = input("Enter the desired z-value for the kitting robot: ")
-	valid_xz = bounds_checking(x, z)
-	while not valid_xz:
-		print("x and z values are out of the range of motion for the kitting arm. x-z values must be within 1.18 from (x = -1.3, z = 1.12725). Try again")
-		x = input("Enter the desired x-value for the kitting robot: ")
-		z = input("Enter the desired z-value for the kitting robot: ")
-		valid_xz = bounds_checking(x, z)
-
-	print("Moving to (%s, %s, %s)" % (x, y, z))
-
-	conveyor_side = True if x >= -1.3 else False
-
-	# Finding alpha (shoulder lift angle) and beta (elbow joint angle)
-	if conveyor_side:
-		alpha, beta = find_alphabeta(x-0.1158, z+0.1)	# adjust these values to account for wrist lengths
-	else:
-		alpha, beta = find_alphabeta(x+0.1154, z+0.1)
-
-	print("alpha: ", alpha)
-	print("beta: ", beta)
-
-	cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
-
-	# linear arm actuator
-	if not conveyor_side:
-		cur_joint_pose[0] = y + 0.1616191
-	else:
-		cur_joint_pose[0] = y - 0.1616191
-
-	# shoulder pan joint
-	if x < -1.3:
-		cur_joint_pose[1] = 3.14
-	else:
-		cur_joint_pose[1] = 0
-
-	# shoudler lift (alpha) and elbow (beta)
-	cur_joint_pose[2] = alpha
-	cur_joint_pose[3] = beta
-
-	# to get flat ee: w1 = - shoulder lift - elbow - pi/2
-	cur_joint_pose[4] = -1*cur_joint_pose[2] - cur_joint_pose[3] - math.pi/2
-
-	moveit_runner_kitting.groups['kitting_arm'].go(cur_joint_pose, wait=True)
-	moveit_runner_kitting.groups['kitting_arm'].stop()
-
-'''
-
-
-
-		
+	print("Move success: %s" % move_success)	
 
 
