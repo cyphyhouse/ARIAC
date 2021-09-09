@@ -23,6 +23,8 @@ def find_alphabeta(x, z):
 	# alpha = alpha' + alpha'' (check proof)
 	a1 = law_cosines_gamma(r1, ab, r2)
 	a2 = math.acos((abs(x+1.3))/ab)
+	print("a1:", a1)
+	print("a2:", a2)
 	alpha = a1 + a2
 	alpha = -alpha			# moving shoulder joint up is negative alpha direction
 	beta = math.pi - beta	# we want complementary (beta is angle b/t two links, elbow joint is comp of this)
@@ -78,8 +80,8 @@ class MoveitRunner():
 		else:
 			alpha, beta = find_alphabeta(x+0.1154, z+0.1)
 
-		print("alpha: ", alpha)
-		print("beta: ", beta)
+		print("alpha: %f" % alpha)
+		print("beta: %f" % beta)
 
 		cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
 
@@ -124,6 +126,7 @@ if __name__ == '__main__':
 	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 
+	#move_success = moveit_runner_kitting.goto_pose(-0.573075, 0, 0.901648)
 	move_success = moveit_runner_kitting.goto_pose(-1.15, 0, 2)
 	print("Move success: %s" % move_success)	
 
