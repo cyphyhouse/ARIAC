@@ -84,9 +84,6 @@ class MoveitRunner():
 		else:
 			alpha, beta = find_alphabeta(x+0.1154, z+0.1)
 
-		print("alpha: %f" % alpha)
-		print("beta: %f" % beta)
-
 		cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
 
 		# linear arm actuator
@@ -120,7 +117,7 @@ class MoveitRunner():
 		self.groups['kitting_arm'].stop()		
 
 		# TODO: eventually want to check with tf frames if move was successful or not
-		return True
+		return x, y, z
 
 class GripperManager():
 	def __init__(self, ns):
@@ -147,9 +144,14 @@ if __name__ == '__main__':
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
-	move_success = moveit_runner_kitting.goto_pose(-0.573075, 0, 0.943)
-	#move_success = moveit_runner_kitting.goto_pose(-1.15, 0, 2)
-	if gm.is_object_attached():
-		print("Move success: %s" % move_success)	
+	gm.activate_gripper()
+	cx,cy,cz = moveit_runner_kitting.goto_pose(-0.573075, 2.274176, 0.944)
+	while not gm.is_object_attached():
+		print(cx, cy, cz)
+		cx,cy,cz = moveit_runner_kitting.goto_pose(cx, cy, cz-0.005)
+	
+	moveit_runner_kitting.goto_pose(-2.265, 1.3676, 1.0)
+	gm.deactivate_gripper()
+		
 
 
