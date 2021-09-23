@@ -290,12 +290,12 @@ if __name__ == '__main__':
 	order = get_order()
 	#print("order: %s" % order)
 
-	all_known_parts = get_parts_from_cameras()
+	# all_known_parts = get_parts_from_cameras()
   
 #	print("all known parts:", all_known_parts)
 
-#	for shipment in order.kitting_shipments:
-#		print(shipment)
+	for shipment in order.kitting_shipments:
+		print(shipment)
 	
 
 	# For controlling the vacuum gripper
