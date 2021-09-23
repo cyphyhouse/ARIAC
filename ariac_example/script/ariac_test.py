@@ -6,6 +6,7 @@ import moveit_commander as mc
 import geometry_msgs.msg
 from nist_gear.msg import Order, Model, LogicalCameraImage, VacuumGripperState
 from trajectory_msgs.msg import JointTrajectory
+from geometry_msgs.msg import Quaternion
 
 from std_srvs.srv import Trigger
 from nist_gear.srv import VacuumGripperControl
@@ -58,6 +59,11 @@ def get_parts_from_cameras():
 	camera_frame_format = r"^logical_camera"
 	all_frames = yaml.safe_load(tf_buffer.all_frames_as_yaml()).keys()
 	part_frames = [f for f in all_frames if re.match(camera_frame_format, f)]
+
+	transformStamped = tf_buffer.lookup_transform("world", "logical_camera_conveyor_frame", rospy.Time(0))	# if having issues, may want to add timeout arg of 5 seconds
+	print("test")
+	print(transformStamped)
+	
 
 	objects = []
 	for frame in part_frames:
@@ -284,7 +290,8 @@ if __name__ == '__main__':
 	order = get_order()
 	#print("order: %s" % order)
 
-#	all_known_parts = get_parts_from_cameras()
+	all_known_parts = get_parts_from_cameras()
+  
 #	print("all known parts:", all_known_parts)
 
 #	for shipment in order.kitting_shipments:
@@ -306,6 +313,4 @@ if __name__ == '__main__':
 	rospy.sleep(2.0)	# to make sure the battery is firmly on AGV before moving
 
 	move_agvs('agv2', 'as1')
-
-	print("script finished")
 
