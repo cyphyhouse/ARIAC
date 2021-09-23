@@ -7,6 +7,8 @@ import math
 
 import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion
+from nist_gear.msg import VacuumGripperState
+from nist_gear.srv import VacuumGripperControl
 
 import sys
 
@@ -20,10 +22,14 @@ def find_alphabeta(x, z):
 	ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
 	beta = law_cosines_gamma(r1, r2, ab)
 
-	# alpha = alpha' + alpha'' (check proof)
 	a1 = law_cosines_gamma(r1, ab, r2)
 	a2 = math.acos((abs(x+1.3))/ab)
-	alpha = a1 + a2
+	# alpha = alpha' + alpha'' if goal z is above start z
+	if z >= 1.1264:
+		alpha = a1 + a2
+	else:
+		alpha = a1 - a2
+
 	alpha = -alpha			# moving shoulder joint up is negative alpha direction
 	beta = math.pi - beta	# we want complementary (beta is angle b/t two links, elbow joint is comp of this)
 	# the above might need additional changes (e.g. abs val, etc) when trying to grab stuff on other side
@@ -55,7 +61,7 @@ class MoveitRunner():
 			group = mc.MoveGroupCommander(group_name, 
 					   robot_description=ns+'/'+robot_description, 
 					   ns=ns)
-			group.set_goal_tolerance(0.001)	# toggle this on and off
+			group.set_goal_tolerance(0.0001)	# toggle this on and off
 			self.groups[group_name] = group
 
 	def goto_pose(self, x, y, z):
@@ -77,9 +83,6 @@ class MoveitRunner():
 			alpha, beta = find_alphabeta(x-0.1158, z+0.1)	# adjust these values to account for wrist lengths
 		else:
 			alpha, beta = find_alphabeta(x+0.1154, z+0.1)
-
-		print("alpha: ", alpha)
-		print("beta: ", beta)
 
 		cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
 
@@ -114,7 +117,23 @@ class MoveitRunner():
 		self.groups['kitting_arm'].stop()		
 
 		# TODO: eventually want to check with tf frames if move was successful or not
-		return True
+		return x, y, z
+
+class GripperManager():
+	def __init__(self, ns):
+		self.ns = ns
+	
+	def activate_gripper(self):
+		rospy.wait_for_service(self.ns + 'control')
+		rospy.ServiceProxy(self.ns + 'control', VacuumGripperControl)(True)
+
+	def deactivate_gripper(self):
+		rospy.wait_for_service(self.ns + 'control')
+		rospy.ServiceProxy(self.ns + 'control', VacuumGripperControl)(False)
+
+	def is_object_attached(self):
+		status = rospy.wait_for_message(self.ns + 'state', VacuumGripperState)
+		return status.attached
 
 if __name__ == '__main__':
 
@@ -123,8 +142,16 @@ if __name__ == '__main__':
 
 	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
+	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
-	move_success = moveit_runner_kitting.goto_pose(-1.15, 0, 2)
-	print("Move success: %s" % move_success)	
+	gm.activate_gripper()
+	cx,cy,cz = moveit_runner_kitting.goto_pose(-0.573075, 2.274176, 0.944)
+	while not gm.is_object_attached():
+		print(cx, cy, cz)
+		cx,cy,cz = moveit_runner_kitting.goto_pose(cx, cy, cz-0.005)
+	
+	moveit_runner_kitting.goto_pose(-2.265, 1.3676, 1.0)
+	gm.deactivate_gripper()
+		
 
 

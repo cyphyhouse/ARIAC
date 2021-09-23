@@ -137,10 +137,6 @@ if __name__ == '__main__':
 
 	moveit_runner_gantry.goto_preset_location('agv2_above')
 
-	# Subscribe to topic to listen to signal of when to start movement - janky solution
-	rospy.init_node('gantry_sub', anonymous=True)
-	rospy.spin()
-
 	moveit_runner_gantry.goto_preset_location('pickup_agv2')
 
 	# No longer using path planning when near battery
