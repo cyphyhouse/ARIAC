@@ -7,11 +7,22 @@ import math
 
 import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion
-from nist_gear.msg import VacuumGripperState
-from nist_gear.srv import VacuumGripperControl
+from nist_gear.msg import VacuumGripperState, Proximity
+from nist_gear.srv import VacuumGripperControl, ConveyorBeltControl
 
 import sys
 
+def get_breakbeam_sensor_data():
+	data = rospy.wait_for_message('/ariac/breakbeam_conveyor', Proximity)
+	return data
+
+def stop_conveyor():
+	rospy.wait_for_service('/ariac/conveyor/control')
+	conveyor_rosservice = rospy.ServiceProxy('/ariac/conveyor/control', ConveyorBeltControl)
+	try:
+		conveyor_rosservice(0)
+	except rospy.ServiceException as exc:
+		print("Service did not process request: " + str(exc))
 
 def find_alphabeta(x, z):
 	r1 = 0.61215	# range of motion of shoulder lift joint
@@ -136,6 +147,8 @@ class GripperManager():
 		return status.attached
 
 if __name__ == '__main__':
+	stop_conveyor()
+	exit()
 
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
@@ -145,6 +158,11 @@ if __name__ == '__main__':
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
 	moveit_runner_kitting.goto_pose(-1.15, 0, 1.5)
+
+	while not get_breakbeam_sensor_data().object_detected:
+		rospy.sleep(0.1)	# how to do this with pthread cond wait
+
+	
 	exit()
 
 	gm.activate_gripper()

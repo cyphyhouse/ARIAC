@@ -21,7 +21,7 @@ sensors:
   breakbeam_conveyor:
     type: break_beam
     pose:
-      xyz: [-0.572989, 0, 1.92]
+      xyz: [-0.572989, 0, 1.92]   # Range of detection is 1 meter. Batteries move along conveyor around z = (0.90, 0.94)
       rpy: [3.141593, 1.570792, 0.000000]
       
   # proximity_sensor_conveyor:
