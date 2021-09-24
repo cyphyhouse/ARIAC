@@ -144,6 +144,9 @@ if __name__ == '__main__':
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
+	moveit_runner_kitting.goto_pose(-1.15, 0, 1.5)
+	exit()
+
 	gm.activate_gripper()
 	cx,cy,cz = moveit_runner_kitting.goto_pose(-0.573075, 2.274176, 0.944)
 	while not gm.is_object_attached():
