@@ -9,18 +9,29 @@ import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion
 from nist_gear.msg import VacuumGripperState, Proximity
 from nist_gear.srv import VacuumGripperControl, ConveyorBeltControl
+from std_srvs.srv import Trigger
 
 import sys
+
+def start_competition():
+    """ Start the competition through ROS service call """
+
+    rospy.wait_for_service('/ariac/start_competition')
+    rospy.ServiceProxy('/ariac/start_competition', Trigger)()
 
 def get_breakbeam_sensor_data():
 	data = rospy.wait_for_message('/ariac/breakbeam_conveyor', Proximity)
 	return data
 
-def stop_conveyor():
+def control_conveyor(power):
+	if power < 0 or power > 100:
+		print("Power must be in range (0,100)")
+		return
+
 	rospy.wait_for_service('/ariac/conveyor/control')
 	conveyor_rosservice = rospy.ServiceProxy('/ariac/conveyor/control', ConveyorBeltControl)
 	try:
-		conveyor_rosservice(0)
+		conveyor_rosservice(power)
 	except rospy.ServiceException as exc:
 		print("Service did not process request: " + str(exc))
 
@@ -147,8 +158,6 @@ class GripperManager():
 		return status.attached
 
 if __name__ == '__main__':
-	stop_conveyor()
-	exit()
 
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
@@ -157,22 +166,44 @@ if __name__ == '__main__':
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
-	moveit_runner_kitting.goto_pose(-1.15, 0, 1.5)
+	moveit_runner_kitting.goto_pose(-1.15, 0, 2)
 
-	while not get_breakbeam_sensor_data().object_detected:
-		rospy.sleep(0.1)	# how to do this with pthread cond wait
+	control_conveyor(100)
 
-	
-	exit()
+	for i in range(2):
+		# bandaid fix: get robot arm out of the way so no interference with break beam sensor
+		print("clearing arm")
+		moveit_runner_kitting.goto_pose(-1.15, 0, 2)
 
-	gm.activate_gripper()
-	cx,cy,cz = moveit_runner_kitting.goto_pose(-0.573075, 2.274176, 0.944)
-	while not gm.is_object_attached():
-		print(cx, cy, cz)
-		cx,cy,cz = moveit_runner_kitting.goto_pose(cx, cy, cz-0.005)
-	
-	moveit_runner_kitting.goto_pose(-2.265, 1.3676, 1.0)
-	gm.deactivate_gripper()
+		print("waiting for battery")
+		while not get_breakbeam_sensor_data().object_detected:
+			rospy.sleep(0.05)	# how to do this with pthread cond wait
+
+		# stop conveyor belt upon sensor detecting battery in range
+		print("battery detected, stop belt")
+		control_conveyor(0)
+
+		# gm.activate_gripper()
+		# moveit_runner_kitting.goto_pose(-0.572989, 0, 0.932)
+
+		print("moving arm to battery")
+		gm.activate_gripper()
+		cx,cy,cz = moveit_runner_kitting.goto_pose(-0.572989, 0, 0.935)
+		print("lowering")
+		while not gm.is_object_attached():
+			print(cx, cy, cz)
+			cx,cy,cz = moveit_runner_kitting.goto_pose(cx, cy, cz-0.002)
+		
+		print("going to agv")
+		moveit_runner_kitting.goto_pose(-0.572989, 0, 2.0)	# waypoint to avoid crashing into conveyor
+		moveit_runner_kitting.goto_pose(-2.265, 1.3676, 1.0)
+		gm.deactivate_gripper()
+
+		# resume conveyor
+		print("next cycle")
+		control_conveyor(100)
+
+
 		
 
 
