@@ -18,7 +18,13 @@
 #include <limits>
 #include <string>
 #include <gazebo/transport/Node.hh>
+
+#if GAZEBO_MAJOR_VERSION == 11
+#include <ignition/math/AxisAlignedBox.hh>
+#else
 #include <ignition/math/Box.hh>
+#endif
+
 
 #include "ObjectDisposalPlugin.hh"
 
@@ -100,7 +106,12 @@ void ObjectDisposalPlugin::ActOnContactingModels()
   auto linkBoxMin = linkBox.Min();
   linkBoxMin.Z() = std::numeric_limits<double>::lowest();
   linkBoxMax.Z() = std::numeric_limits<double>::max();
+
+#if GAZEBO_MAJOR_VERSION == 11
+  auto disposalBox = ignition::math::AxisAlignedBox(linkBoxMin, linkBoxMax);
+#else
   auto disposalBox = ignition::math::Box(linkBoxMin, linkBoxMax);
+#endif
 
   for (auto model : this->contactingModels) {
     if (model) {
