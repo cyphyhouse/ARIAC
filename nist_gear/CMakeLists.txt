@@ -384,6 +384,7 @@ install(TARGETS ${object_disposal_plugin_name}
 set(kit_tray_plugin_name ROSAriacKitTrayPlugin)
 add_library(${kit_tray_plugin_name} src/ROSAriacKitTrayPlugin.cc)
 target_link_libraries(${kit_tray_plugin_name}
+  ${catkin_LIBRARIES}
   ${GAZEBO_LIBRARIES}
   ${roscpp_LIBRARIES}
   ${side_contact_plugin_name}
