@@ -7,6 +7,8 @@ import math
 import yaml
 from yaml.loader import SafeLoader
 
+import tf2_listener
+
 import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion
 from nist_gear.msg import VacuumGripperState, Proximity
@@ -315,6 +317,12 @@ if __name__ == '__main__':
 	# moveit_runner_kitting.goto_pose(-1.15, 0, 2)
 
 	# control_conveyor(100)
+
+	source_frame = 'logical_camera_conveyor_frame'
+	target_frame = 'logical_camera_conveyor_assembly_battery_green_1_frame'
+	world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
+	print(world_pose)
+	exit()
 
 	motionPlan = Follow_points(moveit_runner_kitting, gm)
 	while True:

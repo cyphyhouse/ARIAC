@@ -26,21 +26,25 @@ if __name__ == '__main__':
 
     # The shipping box TF frames are published by logical cameras, or can be published
     # by user-created TF broadcasters.
-    frame = 'shipping_box_frame'
+    # frame = 'shipping_box_frame'
+    source_frame = 'logical_camera_conveyor_frame'
+    target_frame = 'logical_camera_conveyor_assembly_battery_green_1_frame'
     rate = rospy.Rate(1.0)
     while not rospy.is_shutdown():
         # Ensure that the transform is available.
         try:
-            trans = tfBuffer.lookup_transform('world', frame, rospy.Time(), rospy.Duration(1.0))
+            # trans = tfBuffer.lookup_transform('world', frame, rospy.Time(), rospy.Duration(1.0))
+            trans = tfBuffer.lookup_transform(source_frame, target_frame, rospy.Time(), rospy.Duration(1.0))
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             print(e)
             continue
 
         # Transform the pose from the specified frame to the world frame.
         local_pose = geometry_msgs.msg.PoseStamped()
-        local_pose.header.frame_id = frame
-        local_pose.pose.position.x = 0.15
-        local_pose.pose.position.y = 0.15
+        # local_pose.header.frame_id = frame
+        local_pose.header.frame_id = target_frame
+        # local_pose.pose.position.x = 0.15
+        # local_pose.pose.position.y = 0.15
 
         world_pose = tfBuffer.transform(local_pose, 'world')
         print(world_pose)
