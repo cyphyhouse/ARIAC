@@ -11,7 +11,7 @@ import tf2_listener
 
 import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion
-from nist_gear.msg import VacuumGripperState, Proximity
+from nist_gear.msg import VacuumGripperState, Proximity, LogicalCameraImage
 from nist_gear.srv import VacuumGripperControl, ConveyorBeltControl
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
@@ -25,9 +25,7 @@ def start_competition():
     rospy.ServiceProxy('/ariac/start_competition', Trigger)()
 
 def competition_state():
-	print('waiting')
 	data = rospy.wait_for_message('/ariac/competition_state', String)
-	print('got it')
 	print(data)
 	return data
 
@@ -40,6 +38,9 @@ def get_breakbeam_sensor_data():
 	return data
 def get_breakbeam_flat_sensor_data():
 	data = rospy.wait_for_message('/ariac/breakbeam_conveyor_flat', Proximity)
+	return data
+def get_logical_camera_conveyor_data():
+	data = rospy.wait_for_message('/ariac/logical_camera_conveyor', LogicalCameraImage)
 	return data
 
 def control_conveyor(power):
@@ -221,19 +222,40 @@ class Follow_points():
 		# State 3: Battery detected, moving arm toward battery
 		if self.state == 3:
 			self.gm.activate_gripper()
-			battery_detect_pose = self.sensor_file['sensors']['breakbeam_conveyor']['pose']['xyz']
-			battery_detect_pose[2] -= 0.985	# detection length is 1 meter (a little less for height of battery)
-			self.moveit_runner_kitting.goto_pose(battery_detect_pose[0], battery_detect_pose[1], battery_detect_pose[2])
+
+			# Use Logical Camera to get pose of battery(s)
+			# data = get_logical_camera_conveyor_data()[0]
+
+			# todo: add functionality to grab all batteries detected by camera (one at a time)
+
+			for i in range(1,9):
+				source_frame = 'logical_camera_conveyor_frame'
+				target_frame = 'logical_camera_conveyor_assembly_battery_green_' + str(i) + '_frame'
+				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
+				if world_pose is not None:
+					break
+
+			if world_pose is None:
+				self.state = 2
+				return
+
+			self.moveit_runner_kitting.goto_pose(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + 0.03)
+
+			# battery_detect_pose = self.sensor_file['sensors']['breakbeam_conveyor']['pose']['xyz']
+			# battery_detect_pose[2] -= 0.985	# detection length is 1 meter (a little less for height of battery)
+			# self.moveit_runner_kitting.goto_pose(battery_detect_pose[0], battery_detect_pose[1], battery_detect_pose[2])
 
 			# Verify robot moved there
-			cx = kitting_arm.get_current_pose().pose.position.x
-			cy = kitting_arm.get_current_pose().pose.position.y
-			cz = kitting_arm.get_current_pose().pose.position.z
-			print("cx:", cx - battery_detect_pose[0])
-			print("cy:", cy - battery_detect_pose[1])
-			print("cz:", cz - battery_detect_pose[2])
-			if abs(cx - battery_detect_pose[0]) + abs(cy - battery_detect_pose[1]) + abs(cz - battery_detect_pose[2]) <= 0.01:
-				self.state = 4
+			# cx = kitting_arm.get_current_pose().pose.position.x
+			# cy = kitting_arm.get_current_pose().pose.position.y
+			# cz = kitting_arm.get_current_pose().pose.position.z
+			# print("cx:", cx - world_pose.pose.position.x)
+			# print("cy:", cy - world_pose.pose.position.y)
+			# print("cz:", cz - world_pose.pose.position.z + 0.03)
+			# print(abs(cx - world_pose.pose.position.x) + abs(cy - world_pose.pose.position.y) + abs(cz - (world_pose.pose.position.z + 0.03)))
+			# if abs(cx - world_pose.pose.position.x) + abs(cy - world_pose.pose.position.y) + abs(cz - world_pose.pose.position.z + 0.03) <= 0.01:
+			# 	self.state = 4
+			self.state = 4
 			return
 		
 		# State 4: Lowering toward battery
@@ -269,7 +291,7 @@ class Follow_points():
 
 		# State 7: Transport to Gantry Robot
 		if self.state == 7:
-			move_agvs('agv2', 'as1')
+			# move_agvs('agv2', 'as1')
 			self.state = 0
 			return
 
@@ -318,11 +340,12 @@ if __name__ == '__main__':
 
 	# control_conveyor(100)
 
-	source_frame = 'logical_camera_conveyor_frame'
-	target_frame = 'logical_camera_conveyor_assembly_battery_green_1_frame'
-	world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
-	print(world_pose)
-	exit()
+
+	# source_frame = 'logical_camera_conveyor_frame'
+	# target_frame = 'logical_camera_conveyor_assembly_battery_green_2_frame'
+	# world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
+	# print(world_pose.pose.position)
+	# exit()
 
 	motionPlan = Follow_points(moveit_runner_kitting, gm)
 	while True:
