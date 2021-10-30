@@ -18,7 +18,7 @@
 
 options:
   insert_models_over_bins: true
-  belt_population_cycles: 2
+  belt_population_cycles: 10
   insert_models_over_stations: false
   gazebo_state_logging: true
 time_limit: 500
@@ -80,47 +80,22 @@ models_over_bins:
 
 belt_models:
   assembly_battery_green:
-    2.0:
+    3.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
   assembly_battery_blue:
-    2.0:
-      pose:
-        xyz: [0.0, 4.3, 0.92]
-        rpy: [0, 0, 0]
-  assembly_battery_red:
-    2.0:
-      pose:
-        xyz: [0.0, 4.3, 0.92]
-        rpy: [0, 0, 0]
-  # assembly_pump_green:
-  #   1.0:
-  #     pose:
-  #       xyz: [0.0, 4.3, 0.92]
-  #       rpy: [0, 0, 0]
-  # assembly_pump_blue:
-  #   1.0:
-  #     pose:
-  #       xyz: [0.0, 4.3, 0.92]
-  #       rpy: [0, 0, 0]
-  # assembly_pump_red:
-  #   1.0:
-  #     pose:
-  #       xyz: [0.0, 4.3, 0.92]
-  #       rpy: [0, 0, 0]
-  assembly_regulator_green:
-    2.0:
-      pose:
-        xyz: [0.0, 4.3, 0.92]
-        rpy: [0, 0, 0]
-  assembly_regulator_blue:
-    2.0:
+    3.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
   assembly_regulator_red:
-    2.0:
+    3.0:
+      pose:
+        xyz: [0.0, 4.3, 0.92]
+        rpy: [0, 0, 0]
+  assembly_sensor_blue:
+    3.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
@@ -138,10 +113,11 @@ drops:
         rpy: [0, 0, 0.2]
       product_type_to_drop: assembly_battery_blue
 
-# sensor_blackout:
-#   product_count: 2 #sensor blackout triggered after second product is placed
-#   duration: 15
+sensor_blackout:
+  product_count: 2 #sensor blackout triggered after second product is placed
+  duration: 15
 
-# faulty_products:
-#   - assembly_battery_blue_1
-#   - assembly_battery_blue_5
+faulty_products:
+  - assembly_battery_blue_1
+  - assembly_battery_blue_5
+

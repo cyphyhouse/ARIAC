@@ -29,6 +29,12 @@ def competition_state():
 	print(data)
 	return data
 
+def get_order():
+    """ Get the current order from the /ariac/orders topic"""
+
+    order = rospy.wait_for_message('/ariac/orders', Order)
+    return order
+
 def move_agvs(agv, dest):
 	rospy.wait_for_service('/ariac/' + agv + '/to_' + dest)
 	rospy.ServiceProxy('/ariac/' + agv + '/to_' + dest, Trigger)()
@@ -187,6 +193,7 @@ class Follow_points():
 			data = yaml.load(f)
 			# breakbeam_conveyor_pose_xyz = data['sensors']['breakbeam_conveyor']['pose']['xyz']
 		self.sensor_file = data
+		self.items_needed = {"assembly_battery_green", "assembly_regulator_red", "assembly_pump_blue"}
 
 	def main_body(self):
 		# Start state: Kitting robot may be out of position
@@ -211,7 +218,7 @@ class Follow_points():
 			self.state = 2
 			return
 		
-		# State 2: Wait for battery
+		# State 2: Wait for an item in the order
 		if self.state == 2:
 			while not (get_breakbeam_sensor_data().object_detected and get_breakbeam_flat_sensor_data().object_detected):
 				rospy.sleep(0.05)	# how to do this with pthread cond wait
