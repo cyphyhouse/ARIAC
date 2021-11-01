@@ -193,11 +193,16 @@ class Follow_points():
 			data = yaml.load(f)
 			# breakbeam_conveyor_pose_xyz = data['sensors']['breakbeam_conveyor']['pose']['xyz']
 		self.sensor_file = data
-		self.items_needed = {"assembly_battery_green", "assembly_regulator_red", "assembly_pump_blue"}
+		self.items_needed = {"assembly_battery_green": 1, "assembly_regulator_red": 1, "assembly_pump_blue": 1} # hardcoded for demo example, use get_orders() for actual functionality
+		self.target = ""
 
 	def main_body(self):
 		# Start state: Kitting robot may be out of position
 		if self.state == 0:
+			# completed order
+			if sum(self.items_needed.values()) == 0:
+				return True
+
 			start_pose = [-1.15, 0, 2]
 			self.moveit_runner_kitting.goto_pose(start_pose[0], start_pose[1], start_pose[2])
 			
@@ -207,7 +212,7 @@ class Follow_points():
 			cz = kitting_arm.get_current_pose().pose.position.z
 			if abs(cx - start_pose[0]) + abs(cy - start_pose[1]) + abs(cz - start_pose[2]) <= 0.01:
 				self.state = 1
-			return
+			return False
 		
 		# State 1: Kitting robot in starting position
 		if self.state == 1:
@@ -216,15 +221,29 @@ class Follow_points():
 			else:
 				control_conveyor(100)
 			self.state = 2
-			return
+			return False
 		
 		# State 2: Wait for an item in the order
 		if self.state == 2:
-			while not (get_breakbeam_sensor_data().object_detected and get_breakbeam_flat_sensor_data().object_detected):
-				rospy.sleep(0.05)	# how to do this with pthread cond wait
+			# while not (get_breakbeam_sensor_data().object_detected and get_breakbeam_flat_sensor_data().object_detected):
+			# 	rospy.sleep(0.05)	# how to do this with pthread cond wait
+			detected = False
+			while True:
+				models_detected = get_logical_camera_conveyor_data().models
+				if len(models_detected) == 0:
+					rospy.sleep(0.05)
+				for m in models_detected:
+					if m.type in self.items_needed and self.items_needed[m.type] > 0:
+						print("here")
+						self.target = m.type
+						detected = True
+						break
+				if detected:
+					break
 			control_conveyor(0)
 			self.state = 3
-			return
+			print(self.target)
+			return False
 
 		# State 3: Battery detected, moving arm toward battery
 		if self.state == 3:
@@ -235,16 +254,22 @@ class Follow_points():
 
 			# todo: add functionality to grab all batteries detected by camera (one at a time)
 
-			for i in range(1,9):
+			if self.target == "":
+				self.state = 2
+				return False
+
+			# read from trial config file to change hardcoded value
+			for i in range(1,11):
 				source_frame = 'logical_camera_conveyor_frame'
-				target_frame = 'logical_camera_conveyor_assembly_battery_green_' + str(i) + '_frame'
+				target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
+				# target_frame = 'logical_camera_conveyor_assembly_battery_green_' + str(i) + '_frame'
 				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
 				if world_pose is not None:
 					break
 
 			if world_pose is None:
 				self.state = 2
-				return
+				return False
 
 			self.moveit_runner_kitting.goto_pose(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + 0.03)
 
@@ -263,7 +288,7 @@ class Follow_points():
 			# if abs(cx - world_pose.pose.position.x) + abs(cy - world_pose.pose.position.y) + abs(cz - world_pose.pose.position.z + 0.03) <= 0.01:
 			# 	self.state = 4
 			self.state = 4
-			return
+			return False
 		
 		# State 4: Lowering toward battery
 		if self.state == 4:
@@ -273,7 +298,7 @@ class Follow_points():
 			self.moveit_runner_kitting.goto_pose(cx, cy, cz - 0.002)
 			if self.gm.is_object_attached():
 				self.state = 5
-			return
+			return False
 
 		# State 5: Moving to AGV
 		if self.state == 5:
@@ -287,20 +312,30 @@ class Follow_points():
 			cz = kitting_arm.get_current_pose().pose.position.z
 			if abs(cx - agv2_pose[0]) + abs(cy - agv2_pose[1]) + abs(cz - agv2_pose[2]) <= 0.01:
 				self.state = 6
-			return
+			return False
 
 		# State 6: Drop battery
 		if self.state == 6:
 			self.gm.deactivate_gripper()
-			rospy.sleep(2.0)
+			self.items_needed[self.target] -= 1
+			print(self.items_needed)
 			self.state = 7
-			return
+			return False
 
 		# State 7: Transport to Gantry Robot
 		if self.state == 7:
 			# move_agvs('agv2', 'as1')
-			self.state = 0
-			return
+			# self.state = 0
+			if sum(self.items_needed.values()) == 0:
+				self.state = 8
+			else:
+				self.state = 0
+			return False
+
+		if self.state == 8:
+			rospy.sleep(2.0)
+			move_agvs('agv2', 'as1')
+			return True
 
 
 
@@ -355,6 +390,5 @@ if __name__ == '__main__':
 	# exit()
 
 	motionPlan = Follow_points(moveit_runner_kitting, gm)
-	while True:
-		motionPlan.main_body()
+	while motionPlan.main_body() is False:
 		print("state:", motionPlan.state)
