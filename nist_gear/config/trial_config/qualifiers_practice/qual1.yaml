@@ -18,7 +18,7 @@
 
 options:
   insert_models_over_bins: true
-  belt_population_cycles: 10
+  belt_population_cycles: 5
   insert_models_over_stations: false
   gazebo_state_logging: true
 time_limit: 500
@@ -80,22 +80,22 @@ models_over_bins:
 
 belt_models:
   assembly_battery_green:
-    3.0:
+    2.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
   assembly_battery_blue:
-    3.0:
+    2.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
   assembly_regulator_red:
-    3.0:
+    2.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
   assembly_sensor_blue:
-    3.0:
+    2.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]

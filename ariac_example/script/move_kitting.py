@@ -187,10 +187,11 @@ class GripperManager():
 		status = rospy.wait_for_message(self.ns + 'state', VacuumGripperState)
 		return status.attached
 
-class Conveyor_Sensor_module(self):
+class Conveyor_Sensor_module():
 	def __init__(self):
 		self.conveyor_state = 0
-	def main_body(self, q):
+		self.target = ""
+	def main_body(self, q, t):
 		# Conveyor State 0: Pre-competition (stopped)
 		if self.conveyor_state == 0:
 			if competition_state().data == "init":
@@ -207,7 +208,8 @@ class Conveyor_Sensor_module(self):
 					rospy.sleep(0.05)	# how to do this with pthread cond wait?
 					continue
 				for m in models_detected:
-					if m.type in self.items_needed and self.items_needed[m.type] > 0:
+					# if m.type in self.items_needed and self.items_needed[m.type] > 0:
+					if m.type in order and order[m.type] > 0:
 						print("here")
 						self.target = m.type
 						detected = True
@@ -216,8 +218,8 @@ class Conveyor_Sensor_module(self):
 					break
 			control_conveyor(0)
 			self.conveyor_state = 2	# conveyor paused
-			self.kitting_state = 2	# kitting arm moves down to grab item
-			print(self.target)
+			# self.kitting_state = 2	# kitting arm moves down to grab item
+			t.append(self.target)
 			return False
 
 		# Conveyor State 2: conveyor paused
@@ -228,10 +230,10 @@ class Conveyor_Sensor_module(self):
 				# operation finished, exit thread
 				if msg == "done":
 					return True
-				else if msg == None:
-					rospy.sleep(0.05)
-				else:
+				elif msg == "run":
 					break
+				else:
+					rospy.sleep(0.05)
 			
 			control_conveyor(100)
 			self.conveyor_state = 1
@@ -249,15 +251,17 @@ class Follow_points():
 			data = yaml.load(f)
 			# breakbeam_conveyor_pose_xyz = data['sensors']['breakbeam_conveyor']['pose']['xyz']
 		self.sensor_file = data
-		self.items_needed = {"assembly_battery_green": 1, "assembly_regulator_red": 1, "assembly_pump_blue": 1} # hardcoded for demo example, use get_orders() for actual functionality
+		# self.items_needed = order
 		self.target = ""
 
-	def main_body(self, q):
+	def main_body(self, q, t):
 		# Start state for kitting robot: Kitting robot may be out of position
 		if self.kitting_state == 0:
 			# completed order
-			if sum(self.items_needed.values()) == 0:
-				return True
+			# if sum(self.items_needed.values()) == 0:
+			if sum(order.values()) == 0:
+				self.kitting_state = 5	# ready to move AGV
+				return False
 
 			start_pose = [-1.15, 0, 2]
 			self.moveit_runner_kitting.goto_pose(start_pose[0], start_pose[1], start_pose[2])
@@ -279,41 +283,49 @@ class Follow_points():
 
 			# todo: add functionality to grab all batteries detected by camera (one at a time)
 
-			if self.target == "":
-				self.kitting_state = 1
-				return False
+			# wait for sensor/conveyor module to send target item
+			while len(t) == 0:
+				rospy.sleep(0.05)
+			self.target = t.pop(0)
+			print("in kitting mod:", self.target)
+			
+			# if self.target == "":
+			# 	self.kitting_state = 1
+			# 	return False
 
 			# read from trial config file to change hardcoded value
 			for i in range(1,11):
 				source_frame = 'logical_camera_conveyor_frame'
 				target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
+				# target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
 				# target_frame = 'logical_camera_conveyor_assembly_battery_green_' + str(i) + '_frame'
 				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
 				if world_pose is not None:
 					break
 
 			if world_pose is None:
-				self.kitting_state = 2
+				self.kitting_state = 0
 				return False
 
 			self.moveit_runner_kitting.goto_pose(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + 0.03)
-			self.kitting_state = 3
+			self.kitting_state = 2
 			return False
 		
-		# Kitting State 3: Lowering toward battery
-		if self.state == 3:
+		# Kitting State 2: Lowering toward battery
+		if self.kitting_state == 2:
 			cx = kitting_arm.get_current_pose().pose.position.x
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
 			self.moveit_runner_kitting.goto_pose(cx, cy, cz - 0.002)
 			if self.gm.is_object_attached():
-				self.state = 5
+				self.kitting_state = 3
 			return False
 
-		# State 5: Moving to AGV
-		if self.state == 5:
+		# State 3: Moving to AGV
+		if self.kitting_state == 3:
 			agv2_pose = [-2.265, 1.3676, 1.0]
 			self.moveit_runner_kitting.goto_pose(-0.572989, 0, 2.0)	# waypoint to avoid crashing into conveyor
+			q.put("run")	# resume conveyor belt
 			self.moveit_runner_kitting.goto_pose(agv2_pose[0], agv2_pose[1], agv2_pose[2])
 			
 			# verify if there, then change state
@@ -321,75 +333,48 @@ class Follow_points():
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
 			if abs(cx - agv2_pose[0]) + abs(cy - agv2_pose[1]) + abs(cz - agv2_pose[2]) <= 0.01:
-				self.state = 6
+				self.kitting_state = 4
 			return False
 
-		# State 6: Drop battery
-		if self.state == 6:
+		# State 4: Drop battery
+		if self.kitting_state == 4:
 			self.gm.deactivate_gripper()
-			self.items_needed[self.target] -= 1
-			print(self.items_needed)
-			self.state = 7
+			# self.items_needed[self.target] -= 1
+			order[self.target] -= 1
+			print(order)
+			self.kitting_state = 0
 			return False
 
-		# State 7: Transport to Gantry Robot
-		if self.state == 7:
-			# move_agvs('agv2', 'as1')
-			# self.state = 0
-			if sum(self.items_needed.values()) == 0:
-				self.state = 8
-			else:
-				self.state = 0
-			return False
-
-		if self.state == 8:
+		# State 5: Transport to Gantry Robot
+		if self.kitting_state == 5:
 			rospy.sleep(2.0)
 			move_agvs('agv2', 'as1')
+			q.put("done")
 			return True
 
-
-
-	def loop_body(self):
-		# bandaid fix: get robot arm out of the way so no interference with break beam sensor
-		print("clearing arm")
-		self.moveit_runner_kitting.goto_pose(-1.15, 0, 2)
-
-		print("waiting for battery")
-		while not (get_breakbeam_sensor_data().object_detected and get_breakbeam_flat_sensor_data().object_detected):
-			rospy.sleep(0.05)	# how to do this with pthread cond wait
-
-		# stop conveyor belt upon sensor detecting battery in range
-		print("battery detected, stop belt")
-		control_conveyor(0)
-
-		print("moving arm to battery")
-		self.gm.activate_gripper()
-		cx,cy,cz = moveit_runner_kitting.goto_pose(-0.572989, 0, 0.935)
-		print("lowering")
-		while not self.gm.is_object_attached():
-			print(cx, cy, cz)
-			cx,cy,cz = self.moveit_runner_kitting.goto_pose(cx, cy, cz-0.002)
-		
-		print("going to agv")
-		self.moveit_runner_kitting.goto_pose(-0.572989, 0, 2.0)	# waypoint to avoid crashing into conveyor
-		self.moveit_runner_kitting.goto_pose(-2.265, 1.3676, 1.0)
-		self.gm.deactivate_gripper()
-
-		# resume conveyor
-		print("next cycle")
-		control_conveyor(100)
-
-def conveyor_loop(q):
+def conveyor_loop(q, t):
 	conveyorPlan = Conveyor_Sensor_module()
-	while conveyorPlan.main_body(q) is False:
-		print("conveyor state:", conveyorPlan.state)
+	lastState = 0
+	while conveyorPlan.main_body(q, t) is False:
+		curState = conveyorPlan.conveyor_state
+		if curState != lastState:
+			print("conveyor state:", conveyorPlan.conveyor_state)
+		lastState = curState
 
-def kitting_loop(q):
+
+def kitting_loop(q, t):
 	motionPlan = Follow_points(moveit_runner_kitting, gm)
-	while motionPlan.main_body(q) is False:
-		print("kitting state:", motionPlan.state)
+	lastState = 0
+	while motionPlan.main_body(q, t) is False:
+		curState = motionPlan.kitting_state
+		if curState != lastState:
+			print("kitting state:", motionPlan.kitting_state)
+		lastState = curState
 
 if __name__ == '__main__':
+
+	# Global dictionary
+	order = {"assembly_battery_green": 1, "assembly_regulator_red": 1, "assembly_battery_blue": 1} # hardcoded for demo example, use get_orders() for actual functionality
 
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
@@ -397,6 +382,7 @@ if __name__ == '__main__':
 	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
+
 
 	# moveit_runner_kitting.goto_pose(-1.15, 0, 2)
 
@@ -412,8 +398,9 @@ if __name__ == '__main__':
 	
 
 	q = Queue.Queue()	# to send signals between two threads
-	conveyor_thread = threading.Thread(target=conveyor_loop, args = (q, ))
-	kitting_thread = threading.Thread(target=kitting_loop, args=(q, ))
+	t = []				# signal telling which item to grab
+	conveyor_thread = threading.Thread(target=conveyor_loop, args = (q, t, ))
+	kitting_thread = threading.Thread(target=kitting_loop, args=(q, t, ))
 
 	conveyor_thread.start()
 	kitting_thread.start()
@@ -422,6 +409,8 @@ if __name__ == '__main__':
 	kitting_thread.join()
 	conveyor_thread.join()
 	
+	print("Order completed")
+	control_conveyor(0)
 
 	# while motionPlan.main_body() is False:
 	# 	print("state:", motionPlan.state)
