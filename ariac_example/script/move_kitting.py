@@ -22,6 +22,11 @@ import sys
 import threading
 import Queue
 
+# Battery z-value grab heights on conveyor
+BATTERY_HEIGHT = 0.03
+SENSOR_HEIGHT = 0.048
+REGULATOR_HEIGHT = 0.05
+
 def start_competition():
     """ Start the competition through ROS service call """
 
@@ -307,7 +312,8 @@ class Follow_points():
 				self.kitting_state = 0
 				return False
 
-			self.moveit_runner_kitting.goto_pose(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + 0.03)
+			# TODO/PICKUP: find out which type item it is
+			self.moveit_runner_kitting.goto_pose(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + item_height)
 			self.kitting_state = 2
 			return False
 		
