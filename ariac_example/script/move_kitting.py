@@ -244,6 +244,31 @@ class Conveyor_Sensor_module():
 			self.conveyor_state = 1
 			return False
 
+AGV_TOP = -2.35								# x-value of top row on AGVs
+AGV_LEFT = [4.5, 1.19, -1.51, -4.88]		# y-value of left cols on AGVs (1-4)
+AGV_ROW_SPACE = 0.24	# x-value of dist between rows on AGV
+AGV_COL_SPACE = 0.18	# y-value of dist between cols on AGV
+
+class AGV_module():
+	def __init__(self):
+		self.used_agvs = [False, False, False, False]
+		self.agv_num_items = [0, 0, 0, 0]
+	
+	# Returns x-y coordinates of next available spot on specified AGV
+	def get_new_loc(agv_num):
+		if agv_num == 1:
+			return (AGV_LEFT[0] + self.agv_num_items[0] % 3, AGV_TOP + math.floor(self.agv_num_items[0]/3))
+		elif agv_num == 2:
+			return (AGV_LEFT[1] + self.agv_num_items[1] % 3, AGV_TOP + math.floor(self.agv_num_items[1]/3))
+		elif agv_num == 3:
+			return (AGV_LEFT[2] + self.agv_num_items[2] % 3, AGV_TOP + math.floor(self.agv_num_items[2]/3))
+		else:
+			return (AGV_LEFT[3] + self.agv_num_items[3] % 3, AGV_TOP + math.floor(self.agv_num_items[3]/3))
+	
+	def update_agv_info(agv_num):
+		self.agv_num_items[agv_num-1] += 1
+
+
 
 class Follow_points():
 	def __init__(self, moveit_runner_kitting, gm):
@@ -312,7 +337,13 @@ class Follow_points():
 				self.kitting_state = 0
 				return False
 
-			# TODO/PICKUP: find out which type item it is
+			item_height = ""
+			if "battery" in self.target:
+				item_height = BATTERY_HEIGHT
+			elif "sensor" in self.target:
+				item_height = SENSOR_HEIGHT
+			else:
+				item_height = REGULATOR_HEIGHT
 			self.moveit_runner_kitting.goto_pose(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + item_height)
 			self.kitting_state = 2
 			return False
@@ -389,6 +420,7 @@ if __name__ == '__main__':
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
+	agvs = AGV_module()
 
 	# moveit_runner_kitting.goto_pose(-1.15, 0, 2)
 
