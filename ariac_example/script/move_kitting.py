@@ -255,18 +255,21 @@ class AGV_module():
 		self.agv_num_items = [0, 0, 0, 0]
 	
 	# Returns x-y coordinates of next available spot on specified AGV
-	def get_new_loc(agv_num):
+	def get_new_loc(self, agv_num):
 		if agv_num == 1:
-			return (AGV_LEFT[0] + self.agv_num_items[0] % 3, AGV_TOP + math.floor(self.agv_num_items[0]/3))
+			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[0]/3), AGV_LEFT[0] + AGV_COL_SPACE*(self.agv_num_items[0] % 3))
 		elif agv_num == 2:
-			return (AGV_LEFT[1] + self.agv_num_items[1] % 3, AGV_TOP + math.floor(self.agv_num_items[1]/3))
+			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[1]/3), AGV_LEFT[1] + AGV_COL_SPACE*(self.agv_num_items[1] % 3))
 		elif agv_num == 3:
-			return (AGV_LEFT[2] + self.agv_num_items[2] % 3, AGV_TOP + math.floor(self.agv_num_items[2]/3))
+			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[2]/3), AGV_LEFT[2] + AGV_COL_SPACE*(self.agv_num_items[2] % 3))
 		else:
-			return (AGV_LEFT[3] + self.agv_num_items[3] % 3, AGV_TOP + math.floor(self.agv_num_items[3]/3))
+			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[3]/3), AGV_LEFT[3] + AGV_COL_SPACE*(self.agv_num_items[3] % 3))
 	
-	def update_agv_info(agv_num):
+	def update_agv_info(self, agv_num):
 		self.agv_num_items[agv_num-1] += 1
+
+	def update_agv_done(self, agv_num):
+		self.used_agvs[agv_num-1] = True
 
 
 
@@ -284,7 +287,7 @@ class Follow_points():
 		# self.items_needed = order
 		self.target = ""
 
-	def main_body(self, q, t):
+	def main_body(self, q, t, agvs):
 		# Start state for kitting robot: Kitting robot may be out of position
 		if self.kitting_state == 0:
 			# completed order
@@ -360,16 +363,17 @@ class Follow_points():
 
 		# State 3: Moving to AGV
 		if self.kitting_state == 3:
-			agv2_pose = [-2.265, 1.3676, 1.0]
 			self.moveit_runner_kitting.goto_pose(-0.572989, 0, 2.0)	# waypoint to avoid crashing into conveyor
 			q.put("run")	# resume conveyor belt
-			self.moveit_runner_kitting.goto_pose(agv2_pose[0], agv2_pose[1], agv2_pose[2])
+
+			(drop_x, drop_y) = agvs.get_new_loc(2)
+			self.moveit_runner_kitting.goto_pose(drop_x, drop_y, 1.0)
 			
 			# verify if there, then change state
 			cx = kitting_arm.get_current_pose().pose.position.x
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
-			if abs(cx - agv2_pose[0]) + abs(cy - agv2_pose[1]) + abs(cz - agv2_pose[2]) <= 0.01:
+			if abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - 1.0) <= 0.01:
 				self.kitting_state = 4
 			return False
 
@@ -379,6 +383,9 @@ class Follow_points():
 			# self.items_needed[self.target] -= 1
 			order[self.target] -= 1
 			print(order)
+
+			agvs.update_agv_info(2)
+
 			self.kitting_state = 0
 			return False
 
@@ -387,6 +394,9 @@ class Follow_points():
 			rospy.sleep(2.0)
 			move_agvs('agv2', 'as1')
 			q.put("done")
+
+			agvs.update_agv_done(2)
+
 			return True
 
 def conveyor_loop(q, t):
@@ -401,8 +411,9 @@ def conveyor_loop(q, t):
 
 def kitting_loop(q, t):
 	motionPlan = Follow_points(moveit_runner_kitting, gm)
+	agvs = AGV_module()
 	lastState = 0
-	while motionPlan.main_body(q, t) is False:
+	while motionPlan.main_body(q, t, agvs) is False:
 		curState = motionPlan.kitting_state
 		if curState != lastState:
 			print("kitting state:", motionPlan.kitting_state)
@@ -411,7 +422,7 @@ def kitting_loop(q, t):
 if __name__ == '__main__':
 
 	# Global dictionary
-	order = {"assembly_battery_green": 1, "assembly_regulator_red": 1, "assembly_battery_blue": 1} # hardcoded for demo example, use get_orders() for actual functionality
+	order = {"assembly_battery_green": 2, "assembly_regulator_red": 2} # hardcoded for demo example, use get_orders() for actual functionality
 
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
@@ -419,21 +430,6 @@ if __name__ == '__main__':
 	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
-
-	agvs = AGV_module()
-
-	# moveit_runner_kitting.goto_pose(-1.15, 0, 2)
-
-	# control_conveyor(100)
-
-
-	# source_frame = 'logical_camera_conveyor_frame'
-	# target_frame = 'logical_camera_conveyor_assembly_battery_green_2_frame'
-	# world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
-	# print(world_pose.pose.position)
-	# exit()
-
-	
 
 	q = Queue.Queue()	# to send signals between two threads
 	t = []				# signal telling which item to grab
@@ -449,6 +445,3 @@ if __name__ == '__main__':
 	
 	print("Order completed")
 	control_conveyor(0)
-
-	# while motionPlan.main_body() is False:
-	# 	print("state:", motionPlan.state)
