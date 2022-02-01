@@ -105,6 +105,17 @@ def new_euclidean_dist(a, b):
 	for i in range(len(a)):
 		squared_sum += (abs(b[i]-a[i]))**2
 
+	return squared_sum**0.5
+
+def reachable(a, b):
+	# Normal cases: y-coordinate of point is within linear rail range
+	if b[1] < a[1] + rail_length and b[1] > a[1] - rail_length:
+		return new_euclidean_dist(a[0::2], b[0::2]) <= max_radius
+	# Edge cases: y-coordinate of point is outside linear rail range
+	else:
+		print("edge case!")
+		return False
+
 # Uses law of cosines to find the angle (in radians) of the side opposite of c
 def law_cosines_gamma(a, b, c):
 	return math.acos((a**2 + b**2 - c**2)/(2*a*b))
@@ -211,38 +222,51 @@ if __name__ == '__main__':
 	# kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	# gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
-    # Read in data from JSON file (replace with actual code later)
-    kitting_world_x = -1.3  # eventually, will want to set kitting.urdf.xacro file with this info
-    kitting_world_y = 0
-    kitting_world_z = 0.9
+	# Read in data from JSON file (replace with actual code later)
+	kitting_world_x = -1.3  # eventually, will want to set kitting.urdf.xacro file with this info
+	kitting_world_y = 0
+	kitting_world_z = 0.9
 
-    linear_actuator_height = 0.1	# from linear_arm_actuator.urdf.xacro
-    shoulder_height = 0.1273
+	linear_actuator_height = 0.1	# from linear_arm_actuator.urdf.xacro
+	shoulder_height = 0.1273
 
-    kitting_base_x = kitting_world_x
-    kitting_base_y = kitting_world_y
-    kitting_base_z = kitting_world_z + linear_actuator_height + shoulder_height
+	global kitting_base
+	kitting_base = (kitting_world_x, kitting_world_y, kitting_world_z + linear_actuator_height + shoulder_height)
+	# kitting_base_x = kitting_world_x
+	# kitting_base_y = kitting_world_y
+	# kitting_base_z = kitting_world_z + linear_actuator_height + shoulder_height
 
-    # Retrieve robot arm parameters -- assuming this isn't part of user input
-    upper_arm_length = 0.612
-    forearm_length = 0.5723
-    max_radius = upper_arm_length + forearm_length
+	# eventually, want to set these values in linear_arm_actuator.urdf
+	base_len = 0.2
+	actuator_len = 10
+
+	# length kitting robot can slide in one direction from origin-y
+	global rail_length
+	rail_length = actuator_len/2 - base_len
+
+	# Retrieve robot arm parameters -- assuming this isn't part of user input
+	upper_arm_length = 0.612
+	forearm_length = 0.5723
+	global max_radius
+	max_radius = upper_arm_length + forearm_length
 
 	# Pick-and-place operation
-    while True:
-        src = input("\nEnter pick (source) pose in form (x, y, z): ")
-        if len(src) == 3:
-            break
-        print("Input formatted incorrectly. Please try again")
+	while True:
+		src = input("\nEnter pick (source) pose in form (x, y, z): ")
+		if len(src) == 3:
+			break
+		print("Input formatted incorrectly. Please try again")
 	
-    while True:
-        dst = input("\nEnter place (dest) pose in form (x, y, z): ")
-        if len(dst) == 3:
-            break
-        print("Input formatted incorrectly. Please try again")
+	while True:
+		dst = input("\nEnter place (dest) pose in form (x, y, z): ")
+		if len(dst) == 3:
+			break
+		print("Input formatted incorrectly. Please try again")
 
-    # Check if pick-and-place operation is possible under the given constraints
-	
+	# Check if pick-and-place operation is possible under the given constraints
+	# check if source is reachable
+	result = reachable(kitting_base, src)
+	print(result)
 
     # Boot up simulation (Gazebo) with the auto-generated controller
     
