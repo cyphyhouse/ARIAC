@@ -215,12 +215,12 @@ class GripperManager():
 
 if __name__ == '__main__':
 
-	# kitting_group_names = ['kitting_arm']
-	# moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
+	kitting_group_names = ['kitting_arm']
+	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
 
-	# kitting_arm = moveit_runner_kitting.groups['kitting_arm']
-	# kitting_arm.set_end_effector_link("vacuum_gripper_link")
-	# gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
+	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
+	kitting_arm.set_end_effector_link("vacuum_gripper_link")
+	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
 	# Read in data from JSON file (replace with actual code later)
 	kitting_world_x = -1.3  # eventually, will want to set kitting.urdf.xacro file with this info
@@ -264,9 +264,17 @@ if __name__ == '__main__':
 		print("Input formatted incorrectly. Please try again")
 
 	# Check if pick-and-place operation is possible under the given constraints
-	# check if source is reachable
-	result = reachable(kitting_base, src)
-	print(result)
+	if not reachable(kitting_base, src):
+		print("Pick (source) location is out of kitting robot's range.")
+		exit()
+	
+	if not reachable(kitting_base, dst):
+		print("Place (dest) location is out of kitting robot's range.")
+		exit()
 
     # Boot up simulation (Gazebo) with the auto-generated controller
+	moveit_runner_kitting.goto_pose(src[0], src[1], src[2])
+	gm.activate_gripper()
+	moveit_runner_kitting.goto_pose(dst[0], dst[1], dst[2])
+	gm.deactivate_gripper()
     
