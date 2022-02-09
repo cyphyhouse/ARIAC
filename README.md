@@ -1,6 +1,6 @@
 # Wiki | Home
 
-## Difference in theis fork
+## Difference in this fork
 
 This is a fork of ARIAC 2021 competition for our Smart Manufacturing research 
 in [Reliable Autonomy research Lab](https://mitras.ece.illinois.edu/group.html).
