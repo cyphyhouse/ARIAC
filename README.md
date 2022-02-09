@@ -1,5 +1,22 @@
 # Wiki | Home
 
+## For
+
+This is a fork of ARIAC 2021 competition for our Smart Manufacturing research 
+in [Reliable Autonomy research Lab](https://mitras.ece.illinois.edu/group.html).
+
+The main differences between this fork and the original competition are the
+following:
+
++ Support ROS Noetic with Gazebo 11 on Ubuntu 20.04 LTS. **TODO** Compilation
+  instructions for ROS Noetic with Gazebo 11.
++ Remove dependencies on `ariac-gazebo_ros_pkgs` and use `gazeo_ros_pkgs` for
+  ROS Noetic.
+  This removes several restrictions enforced by the competition that avoids 
+  querying and controlling the internal state of Gazebo.
++ Start simulation environment in developer mode by default.
+
+
 ## Welcome to ARIAC 2021.
 
 <!-- **NOTE**: These pages are in the process of being updated. If you see something that looks like it got missed, please send us an email at ariac@nist.gov -->
