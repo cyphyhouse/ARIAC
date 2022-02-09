@@ -1,10 +1,17 @@
 @{
-import em, StringIO, os
+try:
+    from StringIO import StringIO  # for Python 2
+except ImportError:
+    from io import StringIO  # for Python 3
+
+import em, os
 def expand_snippet(filename, data=locals()):
-    output = StringIO.StringIO()
+    output = StringIO()
     interpreter = em.Interpreter(output=output)
-    interpreter.include(os.path.join(world_dir, 'snippet', filename), data)
-    print output.getvalue()
+    interpreter.options[em.OVERRIDE_OPT] = False
+    with open(os.path.join(world_dir, 'snippet', filename), "r") as f:
+        interpreter.include(f, data)
+    print(output.getvalue())
 }@
 <?xml version="1.0" ?>
 <sdf version="1.5">
