@@ -97,6 +97,16 @@ def find_alphabeta(x, z):
 def euclidean_dist(x1, z1, x2, z2):
 	return math.sqrt((x2-x1)**2 + (z2-z1)**2)
 
+def euclidean(a, b):
+	if len(a) != len(b):
+		assert("Inputs of different dimensions")
+
+	tmp_sum = 0
+	for i in range(len(a)):
+		tmp_sum += (b[i] - a[i])**2
+
+	return tmp_sum**0.5
+
 def new_euclidean_dist(a, b):
 	if type(a) is not tuple or type(b) is not tuple or len(a) != len(b):
 		raise Exception('Invalid input for euclidean distance!')
@@ -106,6 +116,17 @@ def new_euclidean_dist(a, b):
 		squared_sum += (abs(b[i]-a[i]))**2
 
 	return squared_sum**0.5
+
+# Input - two ranges (e.g. a = [3,5], b = [4,8])
+# Output - boolean
+def overlap(a, b):
+	# swap if out of order
+	if a[0] > b[0]:
+		tmp = a
+		a = b
+		b = tmp
+
+	return a[1] > b[0]
 
 def reachable(a, b):
 	# Normal cases: y-coordinate of point is within linear rail range
@@ -124,12 +145,182 @@ def law_cosines_gamma(a, b, c):
 def bounds_checking(x, z):
 	return True if euclidean_dist(x-0.1158, z+0.1, -1.3, 1.12725) <= 1.1845 else False
 
-def lvl2_consistency_check():
-	# Check if conveyor and kitting ranges of motion intersect
+class KittingRobot:
+    def __init__(self, pose, orient, orient_range, max_r, id_count):
+        self.type = 'kitting'
+        self.pose = pose           # center pose - [x,y,z]
+        self.orient = orient   # direction in which rail runs: 0=x, 1=y
+        self.orient_range = orient_range   # range in its oriented direction (aka rail length)
+        self.max_r = max_r
+        self.shape = Cylinder(pose, orient, orient_range, max_r)
+        self.id = id_count
+        id_count += 1
+        
+    # Returns boolean indicating whether there exists intersection with a Gantry Robot
+    def intersect_w_gantry(self, GantryObject):
+        pass
+    
+    def intersect_w_conveyor(self, ConveyorObject):
+        # ASSUMPTION FOR NOW: kitting and conveyor lie in same direction
+        # check if oriented direction overlaps
+        if not overlap(self.orient_range, ConveyorObject.orient_range):
+            return false
 
-	# Check if kitting and AGV ranges of motion intersect
+        # check if other two directions overlap (for now, if line lies inside cylinder -> if point inside circle)
+        return euclidean(self.shape.circle_center, ConveyorObject.shape.point_2d) < self.shape.r
 
-	# Check if AGV and gantry ranges of motion intersect
+    def intersect_w_agv(self, AGVObject):
+        # ASSUMPTION: only kitting can intersect with starting point
+        # check start point's vertical line intersects with kitting cylinder
+        return self.shape.intersect_w_line(AGVObject.start_shape) # TODO: implement intersect_w_line func
+
+class GantryRobot:
+	def __init__(self, pose, x_rail_range, y_rail_range, arm_r, id_count):
+		self.type = 'gantry'
+		self.pose = pose
+		self.x_rail_range = x_rail_range   # [x_min, x_max]
+		self.y_rail_range = y_rail_range   # [y_min, y_max]
+		self.arm_r = arm_r
+		self.id = id_count
+		id_count += 1
+
+	# TODO
+	# ASSUMPTION: since AGV -> gantry for now, gantry can only intersect w one of dest vert. lines
+	def intersect_w_agv(self, AGVObject):
+		return True
+        
+class AGVRobot:
+	def __init__(self, pose, orient, dst, id_count):
+		# ASSUMPTION: z-range hardcoded for now (twice in this function)
+		self.type = 'agv'
+		self.start_shape = Line(pose, 2, [0.81, 2])   # starting pose's vertical line
+		self.orient = orient   # 0=x, 1=y
+		self.shape = []   # list of vertical lines
+		for i in dst:
+			self.shape.append(Line(pose, 2, [0.81,2]))
+		self.id = id_count
+		id_count += 1
+        
+class ConveyorRobot:
+    def __init__(self, pose, orient, orient_range, dim, id_count):
+        self.type = 'conveyor'
+        self.pose = pose   # center pose [x,y,z]
+        self.orient = orient   # 0 = runs along x-direction, 1 = runs along y-direction
+        self.orient_range = orient_range
+        self.dim = dim   # [x length, y length, z height]
+        # compute line for this (see intersect_kitting_conveyor for formatting)
+        self.shape = Line([pose[0],pose[1],dim[2]], orient, orient_range)
+        self.id = id_count
+        id_count += 1
+
+class Line:
+    def __init__(self, pose, orient, orient_range):
+        self.orient = orient
+        self.orient_range = orient_range
+        self.point_2d = self.get_point(pose)
+    
+    def get_point(self, x):
+        point = []
+        for dim in range(3):
+            if dim != self.orient:
+                point.append(x[dim])
+        return point
+
+class Cylinder:
+	def __init__(self, pose, orient, orient_range, max_r):
+		self.orient = orient
+		self.orient_range = orient_range
+		self.circle_center = self.get_point(pose)
+		self.r = max_r
+
+	def get_point(self, x):
+		point = []
+		for dim in range(3):
+			if dim != self.orient:
+				point.append(x[dim])
+		return point
+
+	# TODO: incomplete. Possibly simply to boxes
+	def intersect_w_line(self, line):
+		# if both are oriented the same way, check:
+		# 1) line's point is inside cylinder's circle
+		# 2) if line and cylinder's ranges intersect
+		if self.orient == line.orient:
+			return True
+		# if not oriented same way, 
+		else:
+			return True
+
+class Graph:
+	# edges - connectivity list (2D array) of robotObjects -> [[a,b,c],[],[a,d]] -> robot_id=0 is connected to robotObjects a,b,c
+	def __init__(self, edges):
+		self.num_v = len(edges)   # number of vertices, ordered 0,1,2,...,v-1
+		self.e = edges
+	
+	# Runs DFS starting on specified vertex/robotObject (rep. by robot_id)
+	# Input: start_v - robot_id of robotObject we want to run DFS starting at
+	# ASSUMPTION: conveyor -> kitting -> AGV -> conveyor
+	def dfs(self, start_v):
+		seen = set()
+		seen.add(start_v)
+		self.dfs_helper(start_v, self.e, seen)
+		return seen
+	
+	# Input: cur - robot_id of robotObject we are currently at in DFS
+	# Output: none
+	# Side effects: updates seen set
+	def dfs_helper(self, cur, edge_list, seen):
+		for r in edge_list[cur]:
+			if r not in seen:
+				seen.add(r)
+				self.dfs_helper(r, edge_list, seen)
+		return
+
+# Input: robotObjects - a 2D list of robot objects (ordered KittingObject, GantryObject, AGVObject, ConveyorObject)
+# ASSUMPTION: for now, assuming conveyor -> kitting -> AGV -> gantry
+def build_graph(robotObjects):
+	e = []   # index corresponds to robot_id
+	for i in range(num_robots):
+		e.append([])
+
+    # detect conveyor -> kitting edges
+	for c_obj in robotObjects[3]:
+		tmp_e = []
+		for k_obj in robotObjects[0]:
+			if k_obj.intersect_w_conveyor(c_obj):
+				tmp_e.append(k_obj.id)
+		e[c_obj.id] = tmp_e
+
+	# detect kitting -> AGV edges
+	for k_obj in robotObjects[0]:
+		tmp_e = []
+		for agv_obj in robotObjects[2]:
+			if k_obj.intersect_w_agv(agv_obj):
+				tmp_e.append(agv_obj.id)
+		e[k_obj.id] = tmp_e
+
+	# detect AGV -> gantry edges
+	for agv_obj in robotObjects[2]:
+		tmp_e = []
+		for g_obj in robotObjects[1]:
+			if g_obj.intersect_w_agv(agv_obj):
+				tmp_e.append(g_obj.id)
+		e[agv_obj.id] = tmp_e
+
+	return Graph(e)
+
+# Input : robotObjects - a 2D list of robot objects (ordered KittingObject, GantryObject, AGVObject, ConveyorObject)
+def connectivity(robotObjects):
+	g = build_graph(robotObjects)
+	connected = set()
+	for c_obj in robotObjects[3]:
+		s = g.dfs(c_obj.id)
+
+		# Merge sets
+		for i in s:
+			connected.add(i)
+
+	return len(connected) == num_robots
 
 
 def pick_place(moveit_runner_kitting, moveit_runner_gantry, kitting_gm, gantry_gm):
@@ -159,107 +350,6 @@ def pick_place(moveit_runner_kitting, moveit_runner_gantry, kitting_gm, gantry_g
 	kitting_gm.activate_gripper()
 	moveit_runner_kitting.goto_pose(dst[0], dst[1], dst[2])
 	kitting_gm.deactivate_gripper()
-
-class KittingRobot:
-    def __init__(self, pose, orient, orient_range, max_r, id_count):
-        self.type = 'kitting'
-        self.pose = pose           # center pose - [x,y,z]
-        self.orient = orient   # direction in which rail runs: 0=x, 1=y
-        self.orient_range = orient_range   # range in its oriented direction (aka rail length)
-        self.max_r = max_r
-        self.shape = Cylinder(pose, orient, orient_range, max_r)
-        self.id = id_count
-        id_count += 1
-        
-    # Returns boolean indicating whether there exists intersection with a Gantry Robot
-    def intersect_w_gantry(self, GantryObject):
-        pass
-    
-    def intersect_w_conveyor(self, ConveyorObject):
-        # ASSUMPTION FOR NOW: kitting and conveyor lie in same direction
-        # check if oriented direction overlaps
-        if not overlap(self.orient_range, ConveyorObject.orient_range):
-            return false
-
-        # check if other two directions overlap (for now, if line lies inside cylinder -> if point inside circle)
-        return euclidean(self.shape.circle_center, ConveyorObject.shape.point_2d) < self.shape.r
-    
-    # FIX: agv should be represented as vertical line, not point
-    def intersect_w_agv(self, AGVObject):
-        # check if any of the AGV points are inside kitting cylinder
-        for loc in AGVObject.dst:
-            # if AGV orient dimension falls out of range of cylinder orient range, continue
-            if loc[AGVObject.orient] < self.shape.orient_range[0] or loc[AGVObject.orient] > self.shape.orient_range[1]:
-                continue
-
-            # check other two dimensions
-            if euclidean(self.shape.circle_center, get_2d_from_3d(loc,self.orient)) < self.max_r:
-                return True
-
-        return False
-
-class GantryRobot:
-    def __init__(self, pose, x_rail_range, y_rail_range, arm_r, id_count):
-        self.type = 'gantry'
-        self.pose = pose
-        self.x_rail_range = x_rail_range   # [x_min, x_max]
-        self.y_rail_range = y_rail_range   # [y_min, y_max]
-        self.arm_r = arm_r
-        self.id = id_count
-        id_count += 1
-        
-class AGVRobot:
-    def __init__(self, pose, orient, dst, id_count):
-        self.type = 'agv'
-        self.pose = pose   # starting pose of AGV
-        self.orient = orient   # 0=x, 1=y
-        self.shape = []   # list of vertical lines
-        for i in dst:
-            self.shape.append(Line(pose, 2, [0.81,2]))   # TODO: z-range hardcoded for now
-        self.dst = dst   # list of possible locations (inc. start) (change if can control AGV) -> [[x1,y1,z1],[x2,y2,z2],...]
-        # FIX THIS: SHOULD NOT BE A POINT, SHOULD BE A VERTICAL LINE
-        
-        self.id = id_count
-        id_count += 1
-        
-class ConveyorRobot:
-    def __init__(self, pose, orient, orient_range, dim, id_count):
-        self.type = 'conveyor'
-        self.pose = pose   # center pose [x,y,z]
-        self.orient = orient   # 0 = runs along x-direction, 1 = runs along y-direction
-        self.orient_range = orient_range
-        self.dim = dim   # [x length, y length, z height]
-        # compute line for this (see intersect_kitting_conveyor for formatting)
-        self.shape = Line([pose[0],pose[1],dim[2]], orient, orient_range)
-        self.id = id_count
-        id_count += 1
-
-class Line:
-    def __init__(self, pose, orient, orient_range):
-        self.orient = orient
-        self.orient_range = orient_range
-        self.point_2d = self.get_point(pose)
-    
-    def get_point(self, x):
-        point = []
-        for dim in range(3):
-            if dim != self.orient:
-                point.append(x[dim])
-        return point
-
-class Cylinder:
-    def __init__(self, pose, orient, orient_range, max_r):
-        self.orient = orient
-        self.orient_range = orient_range
-        self.circle_center = self.get_point(pose)
-        self.r = max_r
-    
-    def get_point(self, x):
-        point = []
-        for dim in range(3):
-            if dim != self.orient:
-                point.append(x[dim])
-        return point
 
 
 class MoveitRunner():
@@ -391,7 +481,18 @@ if __name__ == '__main__':
 	global max_radius
 	max_radius = upper_arm_length + forearm_length
 
+	k = KittingRobot([-1.3,0,1.127],1,[-4.8,4.8],1.1843,0)
+	a = AGVRobot([-2.266, 4.675, 0],0,[[-2.266, 4.675, 0],[-5.6, 4.675, 0], [-10.590, 4.675, 0]],1)
+	c = ConveyorRobot([-0.57,0,0],1,[-4.8,4.8],[0.5,10,0.9],2)
+	robotObjects = [[k],[],[a],[c]]
+
+	global num_robots
+	num_robots = 0
+	for i in robotObjects:
+		num_robots += len(i)
+
 	# Level 2 Consistency Check - connectivity (for now, assuming conveyor -> kitting -> AGV -> gantry)
+	print('connected? ', connectivity(robotObjects))
 
 	# Pick-and-place operation
 	# make call to function
