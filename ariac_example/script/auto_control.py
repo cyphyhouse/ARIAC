@@ -8,6 +8,7 @@ import yaml
 from yaml.loader import SafeLoader
 
 import tf2_listener
+import json
 
 import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion
@@ -29,10 +30,10 @@ SENSOR_HEIGHT = 0.048
 REGULATOR_HEIGHT = 0.05
 
 def start_competition():
-    """ Start the competition through ROS service call """
+	""" Start the competition through ROS service call """
 
-    rospy.wait_for_service('/ariac/start_competition')
-    rospy.ServiceProxy('/ariac/start_competition', Trigger)()
+	rospy.wait_for_service('/ariac/start_competition')
+	rospy.ServiceProxy('/ariac/start_competition', Trigger)()
 
 def competition_state():
 	data = rospy.wait_for_message('/ariac/competition_state', String)
@@ -40,10 +41,10 @@ def competition_state():
 	return data
 
 def get_order():
-    """ Get the current order from the /ariac/orders topic"""
+	""" Get the current order from the /ariac/orders topic"""
 
-    order = rospy.wait_for_message('/ariac/orders', Order)
-    return order
+	order = rospy.wait_for_message('/ariac/orders', Order)
+	return order
 
 def move_agvs(agv, dest):
 	rospy.wait_for_service('/ariac/' + agv + '/to_' + dest)
@@ -146,85 +147,85 @@ def bounds_checking(x, z):
 	return True if euclidean_dist(x-0.1158, z+0.1, -1.3, 1.12725) <= 1.1845 else False
 
 class KittingRobot:
-    def __init__(self, pose, orient, orient_range, max_r, id_count):
-        self.type = 'kitting'
-        self.pose = pose           # center pose - [x,y,z]
-        self.orient = orient   # direction in which rail runs: 0=x, 1=y
-        self.orient_range = orient_range   # range in its oriented direction (aka rail length)
-        self.max_r = max_r
-        self.shape = Cylinder(pose, orient, orient_range, max_r)
-        self.id = id_count
-        id_count += 1
-        
-    # Returns boolean indicating whether there exists intersection with a Gantry Robot
-    def intersect_w_gantry(self, GantryObject):
-        pass
-    
-    def intersect_w_conveyor(self, ConveyorObject):
-        # ASSUMPTION FOR NOW: kitting and conveyor lie in same direction
-        # check if oriented direction overlaps
-        if not overlap(self.orient_range, ConveyorObject.orient_range):
-            return false
+	def __init__(self, name, pose, orient, orient_range, max_r, id_count):
+		self.type = 'kitting'
+		self.name = name
+		self.pose = pose           # center pose - [x,y,z]
+		self.orient = orient   # direction in which rail runs: 0=x, 1=y
+		self.orient_range = orient_range   # range in its oriented direction (aka rail length)
+		self.max_r = max_r
+		self.shape = Cylinder(pose, orient, orient_range, max_r)
+		self.id = id_count
+		
+	# Returns boolean indicating whether there exists intersection with a Gantry Robot
+	def intersect_w_gantry(self, GantryObject):
+		pass
+	
+	def intersect_w_conveyor(self, ConveyorObject):
+		# ASSUMPTION FOR NOW: kitting and conveyor lie in same direction
+		# check if oriented direction overlaps
+		if not overlap(self.orient_range, ConveyorObject.orient_range):
+			return false
 
-        # check if other two directions overlap (for now, if line lies inside cylinder -> if point inside circle)
-        return euclidean(self.shape.circle_center, ConveyorObject.shape.point_2d) < self.shape.r
+		# check if other two directions overlap (for now, if line lies inside cylinder -> if point inside circle)
+		return euclidean(self.shape.circle_center, ConveyorObject.shape.point_2d) < self.shape.r
 
-    def intersect_w_agv(self, AGVObject):
-        # ASSUMPTION: only kitting can intersect with starting point
-        # check start point's vertical line intersects with kitting cylinder
-        return self.shape.intersect_w_line(AGVObject.start_shape) # TODO: implement intersect_w_line func
+	def intersect_w_agv(self, AGVObject):
+		# ASSUMPTION: only kitting can intersect with starting point
+		# check start point's vertical line intersects with kitting cylinder
+		return self.shape.intersect_w_line(AGVObject.start_shape) # TODO: implement intersect_w_line func
 
 class GantryRobot:
-	def __init__(self, pose, x_rail_range, y_rail_range, arm_r, id_count):
+	def __init__(self, name, pose, x_rail_range, y_rail_range, arm_r, id_count):
 		self.type = 'gantry'
+		self.name = name
 		self.pose = pose
 		self.x_rail_range = x_rail_range   # [x_min, x_max]
 		self.y_rail_range = y_rail_range   # [y_min, y_max]
 		self.arm_r = arm_r
 		self.id = id_count
-		id_count += 1
 
 	# TODO
 	# ASSUMPTION: since AGV -> gantry for now, gantry can only intersect w one of dest vert. lines
 	def intersect_w_agv(self, AGVObject):
 		return True
-        
+		
 class AGVRobot:
-	def __init__(self, pose, orient, dst, id_count):
+	def __init__(self, name, pose, dst, id_count):
 		# ASSUMPTION: z-range hardcoded for now (twice in this function)
 		self.type = 'agv'
+		self.name = name
 		self.start_shape = Line(pose, 2, [0.81, 2])   # starting pose's vertical line
-		self.orient = orient   # 0=x, 1=y
 		self.shape = []   # list of vertical lines
 		for i in dst:
-			self.shape.append(Line(pose, 2, [0.81,2]))
+			self.shape.append(Line(i, 2, [0.81,2]))
 		self.id = id_count
-		id_count += 1
-        
+		
 class ConveyorRobot:
-    def __init__(self, pose, orient, orient_range, dim, id_count):
-        self.type = 'conveyor'
-        self.pose = pose   # center pose [x,y,z]
-        self.orient = orient   # 0 = runs along x-direction, 1 = runs along y-direction
-        self.orient_range = orient_range
-        self.dim = dim   # [x length, y length, z height]
-        # compute line for this (see intersect_kitting_conveyor for formatting)
-        self.shape = Line([pose[0],pose[1],dim[2]], orient, orient_range)
-        self.id = id_count
-        id_count += 1
+	def __init__(self, name, pose, orient, orient_range, id_count):
+		self.type = 'conveyor'
+		self.name = name
+		self.pose = pose   # center pose [x,y,z]
+		self.orient = orient   # 0 = runs along x-direction, 1 = runs along y-direction
+		self.orient_range = orient_range
+		self.height = 0.90	
+		# self.dim = dim   # [x length, y length, z height]
+		# compute line for this (see intersect_kitting_conveyor for formatting)
+		self.shape = Line([pose[0],pose[1],self.height], orient, orient_range)
+		self.id = id_count
 
 class Line:
-    def __init__(self, pose, orient, orient_range):
-        self.orient = orient
-        self.orient_range = orient_range
-        self.point_2d = self.get_point(pose)
-    
-    def get_point(self, x):
-        point = []
-        for dim in range(3):
-            if dim != self.orient:
-                point.append(x[dim])
-        return point
+	def __init__(self, pose, orient, orient_range):
+		self.orient = orient
+		self.orient_range = orient_range
+		self.point_2d = self.get_point(pose)
+	
+	def get_point(self, x):
+		point = []
+		for dim in range(3):
+			if dim != self.orient:
+				point.append(x[dim])
+		return point
 
 class Cylinder:
 	def __init__(self, pose, orient, orient_range, max_r):
@@ -283,7 +284,7 @@ def build_graph(robotObjects):
 	for i in range(num_robots):
 		e.append([])
 
-    # detect conveyor -> kitting edges
+	# detect conveyor -> kitting edges
 	for c_obj in robotObjects[3]:
 		tmp_e = []
 		for k_obj in robotObjects[0]:
@@ -322,6 +323,75 @@ def connectivity(robotObjects):
 
 	return len(connected) == num_robots
 
+# Check if JSON input is valid
+def json_kitting_check(data):
+	if len(data['pose']) != 3:
+		raise Exception("Kitting Robot ", data['name'], " has incorrectly formatted pose.")
+	if data['rail_dim'] != 'x' and data['rail_dim'] != 'y':
+		raise Exception("Kitting Robot ", data['name'], " has incorrectly formatted rail_dim.")
+	if len(data['rail_range']) != 2 or data['rail_range'][0] > data['rail_range'][1]:
+		raise Exception("Kitting Robot ", data['name'], " has incorrectly formatted rail_range")
+def json_gantry_check(data):
+	if len(data['pose']) != 3:
+		raise Exception("Gantry Robot ", data['name'], " has incorrectly formatted pose.")
+	if len(data['x_rail_range']) != 2 or data['x_rail_range'][0] > data['x_rail_range'][1]:
+		raise Exception("Gantry Robot ", data['name'], " has incorrectly formatted x_rail_range.")
+	if len(data['y_rail_range']) != 2 or data['y_rail_range'][0] > data['y_rail_range'][1]:
+		raise Exception("Gantry Robot ", data['name'], " has incorrectly formatted _rail_range.")
+def json_agv_check(data):
+	if len(data['pose']) != 3:
+		raise Exception("AGV Robot ", data['name'], " has incorrectly formatted pose.")     
+def json_conveyor_check(data):
+	if len(data['pose']) != 3:
+		raise Exception("Conveyor Robot ", data['name'], " has incorrectly formatted pose.")
+	if data['orient'] != 'x' and data['orient'] != 'y':
+		raise Exception("Conveyor Robot ", data['name'], " has invalid orient.")
+	if len(data['orient_range']) != 2:
+		raise Exception("Conveyor Robot ", data['name'], " has invalid length")
+
+# JSON parser function
+# Input: JSON file
+# Output: robotObjects - 2D array of RobotObjects (ordered Kitting, Gantry, AGV, Conveyor)
+def parse_json(file):
+	f = open(file)
+	data = json.load(f)
+
+	robotObjects = [[],[],[],[]]
+	ur10_upper_arm_len = 0.612
+	ur10_forearm_len = 0.5723
+	id_count = 0
+	for i in data['robots']:
+		if i['type'] == 'kitting':
+			json_kitting_check(i)
+			kitting_arm_range = ur10_upper_arm_len + ur10_forearm_len
+			robotObjects[0].append(KittingRobot(i['name'], i['pose'], i['rail_dim'], i['rail_range'], kitting_arm_range, id_count))
+			id_count += 1
+		elif i['type'] == 'gantry':
+			json_gantry_check(i)
+			gantry_arm_range = ur10_upper_arm_len + ur10_forearm_len
+			robotObjects[1].append(GantryRobot(i['name'], i['pose'], i['x_rail_range'], i['y_rail_range'], gantry_arm_range, id_count))
+			id_count += 1
+		elif i['type'] == 'agv':
+			json_agv_check(i)
+			robotObjects[2].append(AGVRobot(i['name'], i['pose'], i['destinations'], id_count))
+			id_count += 1
+		elif i['type'] == 'conveyor':
+			json_conveyor_check(i)
+			robotObjects[3].append(ConveyorRobot(i['name'], i['pose'], i['orient'], i['orient_range'], id_count))
+			id_count += 1
+		else:
+			raise Exception("Error: Robot type ", i['type'], " does not exist")
+	
+	global num_robots
+	num_robots = id_count
+
+	return robotObjects
+
+# Debug function
+def print_robot_list(robotObjects):
+	for i in robotObjects:
+		for j in i:
+			print("id = %d, type = %s, name = %s" % (j.id, j.type, j.name))
 
 def pick_place(moveit_runner_kitting, moveit_runner_gantry, kitting_gm, gantry_gm):
 	while True:
@@ -345,7 +415,7 @@ def pick_place(moveit_runner_kitting, moveit_runner_gantry, kitting_gm, gantry_g
 		print("Place (dest) location is out of kitting robot's range.")
 		exit()
 
-    # Boot up simulation (Gazebo) with the auto-generated controller
+	# Boot up simulation (Gazebo) with the auto-generated controller
 	moveit_runner_kitting.goto_pose(src[0], src[1], src[2])
 	kitting_gm.activate_gripper()
 	moveit_runner_kitting.goto_pose(dst[0], dst[1], dst[2])
@@ -403,7 +473,7 @@ class MoveitRunner():
 		else:
 			cur_joint_pose[1] = 0
 
-		# shoudler lift (alpha) and elbow (beta)
+		# shoulder lift (alpha) and elbow (beta)
 		cur_joint_pose[2] = alpha
 		cur_joint_pose[3] = beta
 
@@ -443,6 +513,14 @@ class GripperManager():
 
 if __name__ == '__main__':
 
+	robotObjects = parse_json(sys.argv[1])
+
+	# print_robot_list(robotObjects)
+
+	# Level 2 Consistency Check - connectivity (for now, assuming conveyor -> kitting -> AGV -> gantry)
+	print('connected? ', connectivity(robotObjects))
+	exit()
+
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
 	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
@@ -481,19 +559,6 @@ if __name__ == '__main__':
 	global max_radius
 	max_radius = upper_arm_length + forearm_length
 
-	k = KittingRobot([-1.3,0,1.127],1,[-4.8,4.8],1.1843,0)
-	a = AGVRobot([-2.266, 4.675, 0],0,[[-2.266, 4.675, 0],[-5.6, 4.675, 0], [-10.590, 4.675, 0]],1)
-	c = ConveyorRobot([-0.57,0,0],1,[-4.8,4.8],[0.5,10,0.9],2)
-	robotObjects = [[k],[],[a],[c]]
-
-	global num_robots
-	num_robots = 0
-	for i in robotObjects:
-		num_robots += len(i)
-
-	# Level 2 Consistency Check - connectivity (for now, assuming conveyor -> kitting -> AGV -> gantry)
-	print('connected? ', connectivity(robotObjects))
-
 	# Pick-and-place operation
 	# make call to function
-    
+	
