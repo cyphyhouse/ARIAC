@@ -289,7 +289,6 @@ expand_snippet('rgbd_camera.sdf.template')
     <uri>model://conveyor_belt</uri>
     <!-- <pose>1.067526 -0.714548 0.0 0 0 0</pose> -->
   </include>
-
       
 
 
