@@ -195,11 +195,16 @@ class AGVRobot:
 		# ASSUMPTION: z-range hardcoded for now (twice in this function)
 		self.type = 'agv'
 		self.name = name
+		self.pose = pose
 		self.start_shape = Line(pose, 2, [0.81, 2])   # starting pose's vertical line
 		self.shape = []   # list of vertical lines
 		for i in dst:
 			self.shape.append(Line(i, 2, [0.81,2]))
 		self.id = id_count
+
+		# For usage in AGV_module
+		self.used = False
+		self.num_items = 0
 		
 class ConveyorRobot:
 	def __init__(self, name, pose, orient, orient_range, id_count):
@@ -322,6 +327,24 @@ def connectivity(robotObjects):
 			connected.add(i)
 
 	return len(connected) == num_robots
+
+def set_sensor(robotObjects):
+	f = open('../../nist_gear/config/user_config/sample_user_config.yaml', 'r')
+	data = f.readlines()
+	found = False
+	for i in range(len(data)):
+		if 'logical_camera_conveyor' in data[i]:
+			found = True
+			break
+	if not found:
+		print("No logical camera conveyor sensor. Add one in sample_user_config.yaml")
+		exit()
+	xyz = robotObjects[3][0].pose
+	xyz[2] = 1.5   # height of sensor
+	data[i+3] = '      xyz: ' + str(xyz) + '\n'
+	f = open('../../nist_gear/config/user_config/sample_user_config.yaml', 'w')
+	f.writelines(data)
+	f.close()
 
 # Check if JSON input is valid
 def json_kitting_check(data):
@@ -562,26 +585,32 @@ class Conveyor_Sensor_module():
 			self.conveyor_state = 1
 			return False
 
-AGV_TOP = -2.35								# x-value of top row on AGVs
-AGV_LEFT = [4.5, 1.19, -1.51, -4.88]		# y-value of left cols on AGVs (1-4)
+# AGV_TOP = -2.35								# x-value of top row on AGVs
+# AGV_LEFT = [4.5, 1.19, -1.51, -4.88]		# y-value of left cols on AGVs (1-4)
 AGV_ROW_SPACE = 0.24	# x-value of dist between rows on AGV
 AGV_COL_SPACE = 0.18	# y-value of dist between cols on AGV
 
 class AGV_module():
-	def __init__(self):
-		self.used_agvs = [False, False, False, False]
-		self.agv_num_items = [0, 0, 0, 0]
+	# def __init__(self, AGVList):
+	def __init(self):
+		self.agv_list = AGVList
+		# self.used_agvs = [False, False, False, False]
+		# self.agv_num_items = [0, 0, 0, 0]
 	
+	# Input: A - AGVObject of specified AGV
 	# Returns x-y coordinates of next available spot on specified AGV
-	def get_new_loc(self, agv_num):
-		if agv_num == 1:
-			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[0]/3), AGV_LEFT[0] + AGV_COL_SPACE*(self.agv_num_items[0] % 3))
-		elif agv_num == 2:
-			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[1]/3), AGV_LEFT[1] + AGV_COL_SPACE*(self.agv_num_items[1] % 3))
-		elif agv_num == 3:
-			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[2]/3), AGV_LEFT[2] + AGV_COL_SPACE*(self.agv_num_items[2] % 3))
-		else:
-			return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[3]/3), AGV_LEFT[3] + AGV_COL_SPACE*(self.agv_num_items[3] % 3))
+	def get_new_loc(self, A):
+		return (A.pose[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.pose[1] + AGV_COL_SPACE*(A.num_items % 3))
+	
+	# def get_new_loc(self, agv_num):
+	# 	if agv_num == 1:
+	# 		return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[0]/3), AGV_LEFT[0] + AGV_COL_SPACE*(self.agv_num_items[0] % 3))
+	# 	elif agv_num == 2:
+	# 		return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[1]/3), AGV_LEFT[1] + AGV_COL_SPACE*(self.agv_num_items[1] % 3))
+	# 	elif agv_num == 3:
+	# 		return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[2]/3), AGV_LEFT[2] + AGV_COL_SPACE*(self.agv_num_items[2] % 3))
+	# 	else:
+	# 		return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[3]/3), AGV_LEFT[3] + AGV_COL_SPACE*(self.agv_num_items[3] % 3))
 	
 	def update_agv_info(self, agv_num):
 		self.agv_num_items[agv_num-1] += 1
@@ -684,7 +713,16 @@ class Follow_points():
 			self.moveit_runner_kitting.goto_pose(-0.572989, 0, 2.0)	# waypoint to avoid crashing into conveyor
 			q.put("run")	# resume conveyor belt
 
-			(drop_x, drop_y) = agvs.get_new_loc(2)
+			AGVObjects = robotObjects[2]
+			closest_agv = AGVObjects[0]
+			closest_agv_dist = 100
+			for i in AGVObjects:
+				cur_pose = (kitting_arm.get_current_pose().pose.position.x, kitting_arm.get_current_pose().pose.position.y)
+				if new_euclidean_dist(cur_pose, i.pose) < closest_agv_dist:
+					closest_agv = i
+					closest_agv_list = new_euclidean_dist(cur_pose, i.pose)
+			(drop_x, drop_y) = agvs.get_new_loc(closest_agv)	# TODO: make this closest euclidean later
+			print("debug: ", drop_x, drop_y)
 			self.moveit_runner_kitting.goto_pose(drop_x, drop_y, 1.0)
 			
 			# verify if there, then change state
@@ -729,6 +767,7 @@ def conveyor_loop(q, t):
 
 def kitting_loop(q, t):
 	motionPlan = Follow_points(moveit_runner_kitting, kitting_gm)
+	# agvs = AGV_module(robotObjects[2])
 	agvs = AGV_module()
 	lastState = 0
 	while motionPlan.main_body(q, t, agvs) is False:
@@ -740,12 +779,21 @@ def kitting_loop(q, t):
 
 if __name__ == '__main__':
 
+	global robotObjects
 	robotObjects = parse_json(sys.argv[1])
 
 	# print_robot_list(robotObjects)
 
 	# Level 2 Consistency Check - connectivity (for now, assuming conveyor -> kitting -> AGV -> gantry)
 	print('connected? ', connectivity(robotObjects))
+	if not connectivity(robotObjects):
+		print('Missing a link in Conveyor -> Kitting -> AGV -> Gantry pathway. A connected controller cannot be generated.')
+		exit()
+
+	# Write to sensor file to set up sensor locations based on pose of conveyor belt
+	set_sensor(robotObjects)
+
+	exit()
 
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
