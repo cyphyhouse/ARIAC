@@ -17,6 +17,8 @@ from nist_gear.srv import VacuumGripperControl, ConveyorBeltControl
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
 
+from scipy.spatial import distance
+
 import sys
 import os
 
@@ -78,7 +80,10 @@ def find_alphabeta(x, z):
 	#r1 = 0.573 # length of upper arm link (radius of its range of motion)
 	#r2 = 0.400 # length of forearm link
 
-	ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
+	# CHANGE JSON: -1.3, 1.1264
+	# ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
+	ab = distance.euclidean((-1.3, 1.1264), (x,z))   # ab is dist from kitting base joint to desired (x,z) point (a + b in proof)
+	print("r1:", r1, ", ab:", ab, ", r2:", r2)
 	beta = law_cosines_gamma(r1, r2, ab)
 
 	a1 = law_cosines_gamma(r1, ab, r2)
@@ -109,7 +114,7 @@ def euclidean(a, b):
 	return tmp_sum**0.5
 
 def new_euclidean_dist(a, b):
-	if type(a) is not tuple or type(b) is not tuple or len(a) != len(b):
+	if len(a) != len(b):
 		raise Exception('Invalid input for euclidean distance!')
 	
 	squared_sum = 0
@@ -141,10 +146,11 @@ def reachable(a, b):
 
 # Uses law of cosines to find the angle (in radians) of the side opposite of c
 def law_cosines_gamma(a, b, c):
+	print("a:", a, ", b:", b, ", c:", c)
 	return math.acos((a**2 + b**2 - c**2)/(2*a*b))
 
-def bounds_checking(x, z):
-	return True if euclidean_dist(x-0.1158, z+0.1, -1.3, 1.12725) <= 1.1845 else False
+# def bounds_checking(x, z):
+# 	return True if euclidean_dist(x-0.1158, z+0.1, -1.3, 1.12725) <= 1.1845 else False
 
 class KittingRobot:
 	def __init__(self, name, pose, orient, orient_range, max_r, id_count):
@@ -469,12 +475,15 @@ class MoveitRunner():
 		(roll, pitch, yaw) = euler_from_quaternion([orientation_k.x, orientation_k.y, orientation_k.z, orientation_k.w]) 
 
 		# Bounds checking
-		if y > 4.8 or y < -4.8:
-			return False
-		if not bounds_checking(x, z):
-			return False
+		# if y > 4.8 or y < -4.8:
+		# 	return False
+		# if not bounds_checking(x, z):
+		# 	print("failing here")
+		# 	return False
 
-		conveyor_side = True if x >= -1.3 else False
+		# conveyor_side = True if x >= -1.3 else False
+		conveyor_x = robotObjects[3][0].pose[0]
+		conveyor_side = True if x >= conveyor_x-0.2 else False	# 0.2 is approximate of conveyor width
 
 		# Finding alpha (shoulder lift angle) and beta (elbow joint angle)
 		if conveyor_side:
@@ -491,7 +500,7 @@ class MoveitRunner():
 			cur_joint_pose[0] = y - 0.1616191
 
 		# shoulder pan joint
-		if x < -1.3:
+		if x < conveyor_x-0.2:
 			cur_joint_pose[1] = 3.14
 		else:
 			cur_joint_pose[1] = 0
@@ -643,13 +652,15 @@ class Follow_points():
 				self.kitting_state = 5	# ready to move AGV
 				return False
 
-			start_pose = [-1.15, 0, 2]
+			start_pose = [robotObjects[3][0].pose[0], 0, 2]
+			print("start poseasklfdjlsafj:", start_pose)
 			self.moveit_runner_kitting.goto_pose(start_pose[0], start_pose[1], start_pose[2])
 			
 			# verify if there, then change kitting state
 			cx = kitting_arm.get_current_pose().pose.position.x
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
+			print("start error:", abs(cx - start_pose[0]) + abs(cy - start_pose[1]) + abs(cz - start_pose[2]))
 			if abs(cx - start_pose[0]) + abs(cy - start_pose[1]) + abs(cz - start_pose[2]) <= 0.01:
 				self.kitting_state = 1 	# robot now in position, ready to grab items
 			return False
@@ -681,6 +692,8 @@ class Follow_points():
 				# target_frame = 'logical_camera_conveyor_assembly_battery_green_' + str(i) + '_frame'
 				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
 				if world_pose is not None:
+					print(target_frame)
+					print(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z)
 					break
 
 			if world_pose is None:
@@ -718,17 +731,22 @@ class Follow_points():
 			closest_agv_dist = 100
 			for i in AGVObjects:
 				cur_pose = (kitting_arm.get_current_pose().pose.position.x, kitting_arm.get_current_pose().pose.position.y)
-				if new_euclidean_dist(cur_pose, i.pose) < closest_agv_dist:
+				if new_euclidean_dist(cur_pose, i.pose[0:2]) < closest_agv_dist:
 					closest_agv = i
-					closest_agv_list = new_euclidean_dist(cur_pose, i.pose)
-			(drop_x, drop_y) = agvs.get_new_loc(closest_agv)	# TODO: make this closest euclidean later
+					closest_agv_list = new_euclidean_dist(cur_pose, i.pose[0:2])
+			(drop_x, drop_y) = agvs.get_new_loc(closest_agv)
 			print("debug: ", drop_x, drop_y)
-			self.moveit_runner_kitting.goto_pose(drop_x, drop_y, 1.0)
+
+			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, 1.0)
+			if not move_success:
+				print("This AGV is out of range!")
+				# TODO: cycle to next AGV? or just error?
 			
 			# verify if there, then change state
 			cx = kitting_arm.get_current_pose().pose.position.x
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
+			print("error amount:", abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - 1.0))
 			if abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - 1.0) <= 0.01:
 				self.kitting_state = 4
 			return False
@@ -791,9 +809,7 @@ if __name__ == '__main__':
 		exit()
 
 	# Write to sensor file to set up sensor locations based on pose of conveyor belt
-	set_sensor(robotObjects)
-
-	exit()
+	# set_sensor(robotObjects) # oops wrong place. This file was written to the world on sample_environment.launch
 
 	kitting_group_names = ['kitting_arm']
 	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
