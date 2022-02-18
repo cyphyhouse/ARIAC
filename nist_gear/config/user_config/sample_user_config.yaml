@@ -48,6 +48,24 @@ sensors:
   #     xyz: [-0.572989, 0, 1.1]
   #     rpy: [3.141593, 1.50792, 0.000000]
 
+  logical_camera_conveyor:
+    type: logical_camera
+    pose:
+      xyz: [-0.572989, 0, 1.5]
+      rpy: [3.141593, 1.570792, 0.000000]
+
+  breakbeam_conveyor:
+    type: break_beam
+    pose:
+      xyz: [-0.572989, 0, 1.92]    # Range of detection is 1 meter. Batteries move along conveyor around z = (0.90, 0.94)
+      rpy: [3.141593, 1.570792, 0.000000]
+
+  breakbeam_conveyor_flat:
+    type: break_beam
+    pose:
+      xyz: [-0.572989, -1, 0.92]
+      rpy: [3.141593, 3.141593, -1.570792]
+
 
   logical_camera_station1:
     type: logical_camera

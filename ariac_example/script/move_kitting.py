@@ -11,6 +11,14 @@ import tf2_listener
 
 import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion
+<<<<<<< HEAD
+from nist_gear.msg import VacuumGripperState, Proximity
+from nist_gear.srv import VacuumGripperControl, ConveyorBeltControl
+from std_srvs.srv import Trigger
+
+import sys
+
+=======
 from nist_gear.msg import VacuumGripperState, Proximity, LogicalCameraImage
 from nist_gear.srv import VacuumGripperControl, ConveyorBeltControl
 from std_srvs.srv import Trigger
@@ -27,12 +35,15 @@ BATTERY_HEIGHT = 0.03
 SENSOR_HEIGHT = 0.048
 REGULATOR_HEIGHT = 0.05
 
+>>>>>>> 72a3146970e7b762169b27760438c9aa61858597
 def start_competition():
     """ Start the competition through ROS service call """
 
     rospy.wait_for_service('/ariac/start_competition')
     rospy.ServiceProxy('/ariac/start_competition', Trigger)()
 
+<<<<<<< HEAD
+=======
 def competition_state():
 	data = rospy.wait_for_message('/ariac/competition_state', String)
 	print(data)
@@ -48,15 +59,19 @@ def move_agvs(agv, dest):
 	rospy.wait_for_service('/ariac/' + agv + '/to_' + dest)
 	rospy.ServiceProxy('/ariac/' + agv + '/to_' + dest, Trigger)()
 
+>>>>>>> 72a3146970e7b762169b27760438c9aa61858597
 def get_breakbeam_sensor_data():
 	data = rospy.wait_for_message('/ariac/breakbeam_conveyor', Proximity)
 	return data
 def get_breakbeam_flat_sensor_data():
 	data = rospy.wait_for_message('/ariac/breakbeam_conveyor_flat', Proximity)
 	return data
+<<<<<<< HEAD
+=======
 def get_logical_camera_conveyor_data():
 	data = rospy.wait_for_message('/ariac/logical_camera_conveyor', LogicalCameraImage)
 	return data
+>>>>>>> 72a3146970e7b762169b27760438c9aa61858597
 
 def control_conveyor(power):
 	if power < 0 or power > 100:
@@ -192,6 +207,8 @@ class GripperManager():
 		status = rospy.wait_for_message(self.ns + 'state', VacuumGripperState)
 		return status.attached
 
+<<<<<<< HEAD
+=======
 class Conveyor_Sensor_module():
 	def __init__(self):
 		self.conveyor_state = 0
@@ -273,10 +290,58 @@ class AGV_module():
 
 
 
+>>>>>>> 72a3146970e7b762169b27760438c9aa61858597
 class Follow_points():
 	def __init__(self, moveit_runner_kitting, gm):
 		self.moveit_runner_kitting = moveit_runner_kitting
 		self.gm = gm
+<<<<<<< HEAD
+		self.tries = 0
+
+	def main_body(self):
+		if self.tries == 0:
+			self.loop_body()
+			self.tries = 1
+			return
+		if self.tries == 1:
+			self.loop_body()
+			self.tries = 2
+			return
+		if self.tries == 2:
+			self.loop_body()
+			self.tries = 3
+			return
+
+	def loop_body(self):
+		# bandaid fix: get robot arm out of the way so no interference with break beam sensor
+		print("clearing arm")
+		self.moveit_runner_kitting.goto_pose(-1.15, 0, 2)
+
+		print("waiting for battery")
+		while not (get_breakbeam_sensor_data().object_detected and get_breakbeam_flat_sensor_data().object_detected):
+			rospy.sleep(0.05)	# how to do this with pthread cond wait
+
+		# stop conveyor belt upon sensor detecting battery in range
+		print("battery detected, stop belt")
+		control_conveyor(0)
+
+		print("moving arm to battery")
+		self.gm.activate_gripper()
+		cx,cy,cz = moveit_runner_kitting.goto_pose(-0.572989, 0, 0.935)
+		print("lowering")
+		while not self.gm.is_object_attached():
+			print(cx, cy, cz)
+			cx,cy,cz = self.moveit_runner_kitting.goto_pose(cx, cy, cz-0.002)
+		
+		print("going to agv")
+		self.moveit_runner_kitting.goto_pose(-0.572989, 0, 2.0)	# waypoint to avoid crashing into conveyor
+		self.moveit_runner_kitting.goto_pose(-2.265, 1.3676, 1.0)
+		self.gm.deactivate_gripper()
+
+		# resume conveyor
+		print("next cycle")
+		control_conveyor(100)
+=======
 		self.kitting_state = 0
 		# self.conveyor_state = 0
 		self.agvs = [0, 0, 0, 0]	# 0 = unused, 1 = used
@@ -418,6 +483,7 @@ def kitting_loop(q, t):
 		if curState != lastState:
 			print("kitting state:", motionPlan.kitting_state)
 		lastState = curState
+>>>>>>> 72a3146970e7b762169b27760438c9aa61858597
 
 if __name__ == '__main__':
 
@@ -431,6 +497,16 @@ if __name__ == '__main__':
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
+<<<<<<< HEAD
+	moveit_runner_kitting.goto_pose(-1.15, 0, 2)
+
+	control_conveyor(100)
+
+	motionPlan = Follow_points(moveit_runner_kitting, gm)
+	while 1 > 0:
+		motionPlan.main_body()
+		
+=======
 	q = Queue.Queue()	# to send signals between two threads
 	t = []				# signal telling which item to grab
 	conveyor_thread = threading.Thread(target=conveyor_loop, args = (q, t, ))
@@ -445,3 +521,4 @@ if __name__ == '__main__':
 	
 	print("Order completed")
 	control_conveyor(0)
+>>>>>>> 72a3146970e7b762169b27760438c9aa61858597
