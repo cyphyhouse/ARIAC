@@ -15,7 +15,7 @@ sensors:
   logical_camera_conveyor:
     type: logical_camera
     pose:
-      xyz: [-0.572989, 0, 1.5]
+      xyz: [-0.25, 0, 1.5]
       rpy: [3.141593, 1.570792, 0.000000]
       
   # breakbeam_conveyor:
@@ -76,4 +76,3 @@ sensors:
 
 robot_camera:
   enable: true
-
