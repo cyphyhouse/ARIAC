@@ -1147,12 +1147,12 @@ def main(sysargv=None):
                 f.write(content)
     cmd = [
         # sample world
-        'roslaunch',
-        os.path.join(args.output, 'gear.launch'),
-        'world_path:=' + os.path.join(args.output, 'ariac.world'),
-        'gear_urdf_xacro:=' + os.path.join(args.output, 'gear.urdf.xacro'),
-        'gantry_urdf_xacro:=' + os.path.join(args.output, 'gantry.urdf.xacro'),
-        'kitting_urdf_xacro:=' + os.path.join(args.output, 'kitting.urdf.xacro'),
+        # 'roslaunch',
+        # os.path.join(args.output, 'gear.launch'),
+        # 'world_path:=' + os.path.join(args.output, 'ariac.world'),
+        # 'gear_urdf_xacro:=' + os.path.join(args.output, 'gear.urdf.xacro'),
+        # 'gantry_urdf_xacro:=' + os.path.join(args.output, 'gantry.urdf.xacro'),
+        # 'kitting_urdf_xacro:=' + os.path.join(args.output, 'kitting.urdf.xacro'),
 
         # ariac_world1
         # 'roslaunch',
@@ -1163,12 +1163,12 @@ def main(sysargv=None):
         # 'kitting_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world1/', 'kitting.urdf.xacro'),
 
         # ariac_world2
-        # 'roslaunch',
-        # os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gear.launch'),
-        # 'world_path:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'ariac.world'),
-        # 'gear_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gear.urdf.xacro'),
-        # 'gantry_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gantry.urdf.xacro'),
-        # 'kitting_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'kitting.urdf.xacro'),
+        'roslaunch',
+        os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gear.launch'),
+        'world_path:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'ariac.world'),
+        'gear_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gear.urdf.xacro'),
+        'gantry_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gantry.urdf.xacro'),
+        'kitting_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'kitting.urdf.xacro'),
     ]
     if args.log_to_file:
         cmd.append('gazebo_ros_output:=log')

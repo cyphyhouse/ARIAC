@@ -17,7 +17,7 @@ from nist_gear.srv import VacuumGripperControl, ConveyorBeltControl
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
 
-from scipy.spatial import distance
+# from scipy.spatial import distance
 
 import sys
 import os
@@ -81,8 +81,8 @@ def find_alphabeta(x, z):
 	#r2 = 0.400 # length of forearm link
 
 	# CHANGE JSON: -1.3, 1.1264
-	# ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
-	ab = distance.euclidean((-1.3, 1.1264), (x,z))   # ab is dist from kitting base joint to desired (x,z) point (a + b in proof)
+	ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
+	# ab = distance.euclidean((-1.3, 1.1264), (x,z))   # ab is dist from kitting base joint to desired (x,z) point (a + b in proof)
 	print("r1:", r1, ", ab:", ab, ", r2:", r2)
 	beta = law_cosines_gamma(r1, r2, ab)
 
@@ -149,8 +149,10 @@ def law_cosines_gamma(a, b, c):
 	print("a:", a, ", b:", b, ", c:", c)
 	return math.acos((a**2 + b**2 - c**2)/(2*a*b))
 
-# def bounds_checking(x, z):
-# 	return True if euclidean_dist(x-0.1158, z+0.1, -1.3, 1.12725) <= 1.1845 else False
+def bounds_checking(x, z, robotObject):
+	a = [x,z]
+	b = robotObject.pose[0::2]
+	return True if new_euclidean_dist(a, b) <= robotObject.max_r else False
 
 class KittingRobot:
 	def __init__(self, name, pose, orient, orient_range, max_r, id_count):
@@ -334,24 +336,6 @@ def connectivity(robotObjects):
 
 	return len(connected) == num_robots
 
-def set_sensor(robotObjects):
-	f = open('../../nist_gear/config/user_config/sample_user_config.yaml', 'r')
-	data = f.readlines()
-	found = False
-	for i in range(len(data)):
-		if 'logical_camera_conveyor' in data[i]:
-			found = True
-			break
-	if not found:
-		print("No logical camera conveyor sensor. Add one in sample_user_config.yaml")
-		exit()
-	xyz = robotObjects[3][0].pose
-	xyz[2] = 1.5   # height of sensor
-	data[i+3] = '      xyz: ' + str(xyz) + '\n'
-	f = open('../../nist_gear/config/user_config/sample_user_config.yaml', 'w')
-	f.writelines(data)
-	f.close()
-
 # Check if JSON input is valid
 def json_kitting_check(data):
 	if len(data['pose']) != 3:
@@ -452,7 +436,7 @@ def pick_place(moveit_runner_kitting, moveit_runner_gantry, kitting_gm, gantry_g
 
 
 class MoveitRunner():
-	def __init__(self, group_names, node_name='move_kitting',
+	def __init__(self, group_names, robotObject, node_name='move_kitting',
 				 ns='', robot_description='robot_description'):
 
 		mc.roscpp_initialize(sys.argv)
@@ -467,6 +451,7 @@ class MoveitRunner():
 					   ns=ns)
 			group.set_goal_tolerance(0.0001)	# toggle this on and off
 			self.groups[group_name] = group
+		self.robotObject = robotObject
 
 	def goto_pose(self, x, y, z):
 
@@ -475,16 +460,26 @@ class MoveitRunner():
 		(roll, pitch, yaw) = euler_from_quaternion([orientation_k.x, orientation_k.y, orientation_k.z, orientation_k.w]) 
 
 		# Bounds checking
-		# if y > 4.8 or y < -4.8:
-		# 	return False
-		# if not bounds_checking(x, z):
-		# 	print("failing here")
-		# 	return False
+		if self.robotObject.orient == 'y':
+			if y > self.robotObject.orient_range[1] or y < self.robotObject.orient_range[0]:
+				print("goto_pose error: outside y-range bounds")
+				return False
+			if not bounds_checking(x, z, self.robotObject):
+				print("goto_pose error: outside x-z range bounds")
+				return False
+		else:
+			if x > self.robotObject.orient_range[1] or x < self.robotObject.orient_range[0]:
+				print("goto_pose error: outside x-range bounds")
+				return False
+			if not bounds_checking(y, z, self.robotObject):
+				print("goto_pose error: outside y-z range bounds")
+				return False
 
 		# conveyor_side = True if x >= -1.3 else False
 		conveyor_x = robotObjects[3][0].pose[0]
 		conveyor_side = True if x >= conveyor_x-0.2 else False	# 0.2 is approximate of conveyor width
 
+		print(conveyor_side)
 		# Finding alpha (shoulder lift angle) and beta (elbow joint angle)
 		if conveyor_side:
 			alpha, beta = find_alphabeta(x-0.1158, z+0.1)	# adjust these values to account for wrist lengths
@@ -652,8 +647,12 @@ class Follow_points():
 				self.kitting_state = 5	# ready to move AGV
 				return False
 
-			start_pose = [robotObjects[3][0].pose[0], 0, 2]
+			start_pose = [robotObjects[3][0].pose[0], 0, 1.5]
 			print("start poseasklfdjlsafj:", start_pose)
+
+			# mult robot change
+			while not bounds_checking(start_pose[0], start_pose[2], robotObjects[0][0]):
+				start_pose[2] -= 0.05
 			self.moveit_runner_kitting.goto_pose(start_pose[0], start_pose[1], start_pose[2])
 			
 			# verify if there, then change kitting state
@@ -688,9 +687,10 @@ class Follow_points():
 			for i in range(1,11):
 				source_frame = 'logical_camera_conveyor_frame'
 				target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
-				# target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
-				# target_frame = 'logical_camera_conveyor_assembly_battery_green_' + str(i) + '_frame'
 				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
+				# tfBuffer = tf2_ros.Buffer()
+				# listener = tf2_ros.TransformListener(tfBuffer)
+				# world_pose = tfBuffer.lookup_transform(source_frame, target_frame, rospy.Time())
 				if world_pose is not None:
 					print(target_frame)
 					print(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z)
@@ -812,13 +812,13 @@ if __name__ == '__main__':
 	# set_sensor(robotObjects) # oops wrong place. This file was written to the world on sample_environment.launch
 
 	kitting_group_names = ['kitting_arm']
-	moveit_runner_kitting = MoveitRunner(kitting_group_names, ns='/ariac/kitting')
+	moveit_runner_kitting = MoveitRunner(kitting_group_names, robotObjects[0][0], ns='/ariac/kitting')
 	kitting_arm = moveit_runner_kitting.groups['kitting_arm']
 	kitting_arm.set_end_effector_link("vacuum_gripper_link")
 	kitting_gm = GripperManager(ns='/ariac/kitting/arm/gripper/')
 
 	gantry_group_names = ['gantry_full', 'gantry_arm', 'gantry_torso']
-	moveit_runner_gantry = MoveitRunner(gantry_group_names, ns='/ariac/gantry')
+	moveit_runner_gantry = MoveitRunner(gantry_group_names, robotObjects[1][0], ns='/ariac/gantry')
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
 	order = {"assembly_battery_green": 1}
