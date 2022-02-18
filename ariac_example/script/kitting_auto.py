@@ -114,6 +114,7 @@ def reachable(a, b):
 	# Edge cases: y-coordinate of point is outside linear rail range
 	else:
 		print("edge case!")
+		# TODO: check 'hemispheres' outside linear rail range
 		return False
 
 # Uses law of cosines to find the angle (in radians) of the side opposite of c

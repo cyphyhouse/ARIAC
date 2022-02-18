@@ -94,4 +94,3 @@ sensors:
 
 robot_camera:
   enable: true
-
