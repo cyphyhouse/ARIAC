@@ -65,6 +65,15 @@ def move_agvs(agvObject, dest):
 	rospy.wait_for_service('/ariac/' + agvObject.name + '/to_' + dest)
 	rospy.ServiceProxy('/ariac/' + agvObject.name + '/to_' + dest, Trigger)()
 
+	# update AGV current position
+	a = agvObject.destinations[0]
+	b = agvObject.destinations[1]
+	if dest == 'near':
+		agvObject.cur_pos = a if new_euclidean_dist(a, agvObject.cur_pos) < new_euclidean_dist(b, agvObject.cur_pos) else b
+	else:
+		agvObject.cur_pos = a if new_euclidean_dist(a, agvObject.cur_pos) > new_euclidean_dist(b, agvObject.cur_pos) else b
+
+
 def get_breakbeam_sensor_data():
 	data = rospy.wait_for_message('/ariac/breakbeam_conveyor', Proximity)
 	return data
@@ -216,10 +225,12 @@ class AGVRobot:
 		# ASSUMPTION: z-range hardcoded for now (twice in this function)
 		self.type = 'agv'
 		self.name = name
-		self.pose = pose
+		self.cur_pos = pose
 		self.start_shape = Line(pose, 2, [0.81, 2])   # starting pose's vertical line
+		self.destinations = []
 		self.shape = []   # list of vertical lines
 		for i in dst:
+			self.destinations.append(i)
 			self.shape.append(Line(i, 2, [0.81,2]))
 		self.id = id_count
 
@@ -618,7 +629,7 @@ class AGV_module():
 	# Input: A - AGVObject of specified AGV
 	# Returns x-y coordinates of next available spot on specified AGV
 	def get_new_loc(self, A):
-		return (A.pose[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.pose[1] + AGV_COL_SPACE*(A.num_items % 3))
+		return (A.cur_pos[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.cur_pos[1] + AGV_COL_SPACE*(A.num_items % 3))
 	
 	# def get_new_loc(self, agv_num):
 	# 	if agv_num == 1:
@@ -747,9 +758,9 @@ class Follow_points():
 			closest_agv_dist = 100
 			for i in AGVObjects:
 				cur_pose = (kitting_arm.get_current_pose().pose.position.x, kitting_arm.get_current_pose().pose.position.y)
-				if new_euclidean_dist(cur_pose, i.pose[0:2]) < closest_agv_dist:
+				if new_euclidean_dist(cur_pose, i.cur_pos[0:2]) < closest_agv_dist:
 					closest_agv = i
-					closest_agv_list = new_euclidean_dist(cur_pose, i.pose[0:2])
+					closest_agv_list = new_euclidean_dist(cur_pose, i.cur_pos[0:2])
 			(drop_x, drop_y) = agvs.get_new_loc(closest_agv)
 			self.at_agv = closest_agv   # save this now so we can update info later
 			print("debug: ", drop_x, drop_y)
@@ -763,6 +774,9 @@ class Follow_points():
 			cx = kitting_arm.get_current_pose().pose.position.x
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
+			print("cx-cy-cz:", (cx, cy, cz))
+			print("z-pose:", robotObjects[0][0].pose[2])
+			print("error:", abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - robotObjects[0][0].pose[2]))
 			# mult robot change
 			if abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - robotObjects[0][0].pose[2]) <= 0.01:
 				self.kitting_state = 4
@@ -797,6 +811,12 @@ class Follow_points():
 
 			return True
 
+class GantryStateMachine():
+	def __init__(self, moveit_runner_gantry, gm):
+		self.moveit_runner_gantry = moveit_runner_gantry
+		self.gm = gm
+		self.gantry_state = 0
+
 def conveyor_loop(q, t):
 	conveyorPlan = Conveyor_Sensor_module()
 	lastState = 0
@@ -808,16 +828,18 @@ def conveyor_loop(q, t):
 
 
 def kitting_loop(q, t):
-	motionPlan = Follow_points(moveit_runner_kitting, kitting_gm)
+	kittingFSM = Follow_points(moveit_runner_kitting, kitting_gm)
 	agvs = AGV_module(robotObjects[2])
 	# agvs = AGV_module()
 	lastState = 0
-	while motionPlan.main_body(q, t, agvs) is False:
-		curState = motionPlan.kitting_state
+	while kittingFSM.main_body(q, t, agvs) is False:
+		curState = kittingFSM.kitting_state
 		if curState != lastState:
-			print("kitting state:", motionPlan.kitting_state)
+			print("kitting state:", kittingFSM.kitting_state)
 		lastState = curState
 
+def gantry_loop(q, t):
+	gantryFSM = GantryStateMachine(moveit_runner_gantry, gantry_gm)
 
 if __name__ == '__main__':
 
@@ -847,46 +869,19 @@ if __name__ == '__main__':
 
 	order = {"assembly_battery_green": 1}
 
-	q = Queue.Queue()	# to send signals between two threads
+	q = Queue.Queue()	# to send signals between threads
 	t = []				# signal telling which item to grab
 	conveyor_thread = threading.Thread(target=conveyor_loop, args = (q, t, ))
 	kitting_thread = threading.Thread(target=kitting_loop, args=(q, t, ))
+	gantry_thread = threading.Thread(target=gantry_loop, args=(q, t, ))
 
 	conveyor_thread.start()
 	kitting_thread.start()
+	gantry_thread.start()
 
-	# prevent execution of rest of main file until both threads are finished
+	# prevent execution of rest of main file until threads are finished
 	kitting_thread.join()
 	conveyor_thread.join()
+	gantry_thread().join()
 
-	# # Read in data from JSON file (replace with actual code later)
-	# kitting_world_x = -1.3  # eventually, will want to set kitting.urdf.xacro file with this info
-	# kitting_world_y = 0
-	# kitting_world_z = 0.9
-
-	# linear_actuator_height = 0.1	# from linear_arm_actuator.urdf.xacro
-	# shoulder_height = 0.1273
-
-	# global kitting_base
-	# kitting_base = (kitting_world_x, kitting_world_y, kitting_world_z + linear_actuator_height + shoulder_height)
-	# # kitting_base_x = kitting_world_x
-	# # kitting_base_y = kitting_world_y
-	# # kitting_base_z = kitting_world_z + linear_actuator_height + shoulder_height
-
-	# # eventually, want to set these values in linear_arm_actuator.urdf
-	# base_len = 0.2
-	# actuator_len = 10
-
-	# # length kitting robot can slide in one direction from origin-y
-	# global rail_length
-	# rail_length = actuator_len/2 - base_len
-
-	# # Retrieve robot arm parameters -- assuming this isn't part of user input
-	# upper_arm_length = 0.612
-	# forearm_length = 0.5723
-	# global max_radius
-	# max_radius = upper_arm_length + forearm_length
-
-	# Pick-and-place operation
-	# make call to function
 	
