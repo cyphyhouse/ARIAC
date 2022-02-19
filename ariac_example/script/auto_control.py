@@ -48,9 +48,22 @@ def get_order():
 	order = rospy.wait_for_message('/ariac/orders', Order)
 	return order
 
-def move_agvs(agv, dest):
-	rospy.wait_for_service('/ariac/' + agv + '/to_' + dest)
-	rospy.ServiceProxy('/ariac/' + agv + '/to_' + dest, Trigger)()
+def move_agvs(agvObject, dest):
+	if agvObject.name == 'agv1' or agvObject.name == 'agv2':
+		if dest == 'near':
+			dest = 'as1'
+		else:
+			dest = 'as2'
+	elif agvObject.name == 'agv3' or agvObject.name == 'agv4':
+		if dest == 'near':
+			dest = 'as3'
+		else:
+			dest = 'as4'
+	else:
+		print("Trying to move invalid AGV name. AGV name must be either agv1, agv2, agv3, or agv4.")
+		exit()
+	rospy.wait_for_service('/ariac/' + agvObject.name + '/to_' + dest)
+	rospy.ServiceProxy('/ariac/' + agvObject.name + '/to_' + dest, Trigger)()
 
 def get_breakbeam_sensor_data():
 	data = rospy.wait_for_message('/ariac/breakbeam_conveyor', Proximity)
@@ -83,7 +96,6 @@ def find_alphabeta(x, z):
 	# CHANGE JSON: -1.3, 1.1264
 	ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
 	# ab = distance.euclidean((-1.3, 1.1264), (x,z))   # ab is dist from kitting base joint to desired (x,z) point (a + b in proof)
-	print("r1:", r1, ", ab:", ab, ", r2:", r2)
 	beta = law_cosines_gamma(r1, r2, ab)
 
 	a1 = law_cosines_gamma(r1, ab, r2)
@@ -146,12 +158,12 @@ def reachable(a, b):
 
 # Uses law of cosines to find the angle (in radians) of the side opposite of c
 def law_cosines_gamma(a, b, c):
-	print("a:", a, ", b:", b, ", c:", c)
 	return math.acos((a**2 + b**2 - c**2)/(2*a*b))
 
 def bounds_checking(x, z, robotObject):
 	a = [x,z]
 	b = robotObject.pose[0::2]
+	print("bounds error:", new_euclidean_dist(a, b))
 	return True if new_euclidean_dist(a, b) <= robotObject.max_r else False
 
 class KittingRobot:
@@ -163,6 +175,7 @@ class KittingRobot:
 		self.orient_range = orient_range   # range in its oriented direction (aka rail length)
 		self.max_r = max_r
 		self.shape = Cylinder(pose, orient, orient_range, max_r)
+		self.reachable_agvs = []   # list of AGVObjects 
 		self.id = id_count
 		
 	# Returns boolean indicating whether there exists intersection with a Gantry Robot
@@ -210,7 +223,8 @@ class AGVRobot:
 			self.shape.append(Line(i, 2, [0.81,2]))
 		self.id = id_count
 
-		# For usage in AGV_module
+		# For usage in AGV_module -> nvm
+		self.ready = False   # signal denotes ready to move?
 		self.used = False
 		self.num_items = 0
 		
@@ -311,6 +325,7 @@ def build_graph(robotObjects):
 		for agv_obj in robotObjects[2]:
 			if k_obj.intersect_w_agv(agv_obj):
 				tmp_e.append(agv_obj.id)
+				k_obj.reachable_agvs.append(agv_obj)
 		e[k_obj.id] = tmp_e
 
 	# detect AGV -> gantry edges
@@ -560,7 +575,6 @@ class Conveyor_Sensor_module():
 				for m in models_detected:
 					# if m.type in self.items_needed and self.items_needed[m.type] > 0:
 					if m.type in order and order[m.type] > 0:
-						print("here")
 						self.target = m.type
 						detected = True
 						break
@@ -591,12 +605,12 @@ class Conveyor_Sensor_module():
 
 # AGV_TOP = -2.35								# x-value of top row on AGVs
 # AGV_LEFT = [4.5, 1.19, -1.51, -4.88]		# y-value of left cols on AGVs (1-4)
-AGV_ROW_SPACE = 0.24	# x-value of dist between rows on AGV
+AGV_ROW_SPACE = 0.14	# x-value of dist between rows on AGV
 AGV_COL_SPACE = 0.18	# y-value of dist between cols on AGV
 
 class AGV_module():
-	# def __init__(self, AGVList):
-	def __init(self):
+	def __init__(self, AGVList):
+	# def __init__(self):
 		self.agv_list = AGVList
 		# self.used_agvs = [False, False, False, False]
 		# self.agv_num_items = [0, 0, 0, 0]
@@ -616,7 +630,7 @@ class AGV_module():
 	# 	else:
 	# 		return (AGV_TOP + AGV_ROW_SPACE*math.floor(self.agv_num_items[3]/3), AGV_LEFT[3] + AGV_COL_SPACE*(self.agv_num_items[3] % 3))
 	
-	def update_agv_info(self, agv_num):
+	def update_agv_info(self, agvObject):
 		self.agv_num_items[agv_num-1] += 1
 
 	def update_agv_done(self, agv_num):
@@ -637,6 +651,7 @@ class Follow_points():
 		self.sensor_file = data
 		# self.items_needed = order
 		self.target = ""
+		self.at_agv = None
 
 	def main_body(self, q, t, agvs):
 		# Start state for kitting robot: Kitting robot may be out of position
@@ -648,7 +663,6 @@ class Follow_points():
 				return False
 
 			start_pose = [robotObjects[3][0].pose[0], 0, 1.5]
-			print("start poseasklfdjlsafj:", start_pose)
 
 			# mult robot change
 			while not bounds_checking(start_pose[0], start_pose[2], robotObjects[0][0]):
@@ -659,7 +673,6 @@ class Follow_points():
 			cx = kitting_arm.get_current_pose().pose.position.x
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
-			print("start error:", abs(cx - start_pose[0]) + abs(cy - start_pose[1]) + abs(cz - start_pose[2]))
 			if abs(cx - start_pose[0]) + abs(cy - start_pose[1]) + abs(cz - start_pose[2]) <= 0.01:
 				self.kitting_state = 1 	# robot now in position, ready to grab items
 			return False
@@ -723,7 +736,10 @@ class Follow_points():
 
 		# State 3: Moving to AGV
 		if self.kitting_state == 3:
-			self.moveit_runner_kitting.goto_pose(-0.572989, 0, 2.0)	# waypoint to avoid crashing into conveyor
+			cx = kitting_arm.get_current_pose().pose.position.x
+			cy = kitting_arm.get_current_pose().pose.position.y
+			cz = kitting_arm.get_current_pose().pose.position.z
+			self.moveit_runner_kitting.goto_pose(cx, cy, cz+0.5)	# waypoint to avoid crashing into conveyor
 			q.put("run")	# resume conveyor belt
 
 			AGVObjects = robotObjects[2]
@@ -735,9 +751,10 @@ class Follow_points():
 					closest_agv = i
 					closest_agv_list = new_euclidean_dist(cur_pose, i.pose[0:2])
 			(drop_x, drop_y) = agvs.get_new_loc(closest_agv)
+			self.at_agv = closest_agv   # save this now so we can update info later
 			print("debug: ", drop_x, drop_y)
 
-			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, 1.0)
+			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, robotObjects[0][0].pose[2])   # mult robot change
 			if not move_success:
 				print("This AGV is out of range!")
 				# TODO: cycle to next AGV? or just error?
@@ -746,8 +763,8 @@ class Follow_points():
 			cx = kitting_arm.get_current_pose().pose.position.x
 			cy = kitting_arm.get_current_pose().pose.position.y
 			cz = kitting_arm.get_current_pose().pose.position.z
-			print("error amount:", abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - 1.0))
-			if abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - 1.0) <= 0.01:
+			# mult robot change
+			if abs(cx - drop_x) + abs(cy - drop_y) + abs(cz - robotObjects[0][0].pose[2]) <= 0.01:
 				self.kitting_state = 4
 			return False
 
@@ -758,7 +775,9 @@ class Follow_points():
 			order[self.target] -= 1
 			print(order)
 
-			agvs.update_agv_info(2)
+			# agvs.update_agv_info(self.at_agv)
+			self.at_agv.num_items += 1
+			self.at_agv.ready = True   # LATER: multiple usage of AGVs (not just move after 1 item placed)
 
 			self.kitting_state = 0
 			return False
@@ -766,10 +785,15 @@ class Follow_points():
 		# State 5: Transport to Gantry Robot
 		if self.kitting_state == 5:
 			rospy.sleep(2.0)
-			move_agvs('agv2', 'as1')
+			# Iterate through AGVs and move the ones that are ready
+			for agvObject in robotObjects[2]:
+				if agvObject.ready:
+					move_agvs(agvObject, "near")
+					agvObject.used = True
+			# move_agvs('agv2', 'as1')
 			q.put("done")
 
-			agvs.update_agv_done(2)
+			# agvs.update_agv_done(2)
 
 			return True
 
@@ -785,8 +809,8 @@ def conveyor_loop(q, t):
 
 def kitting_loop(q, t):
 	motionPlan = Follow_points(moveit_runner_kitting, kitting_gm)
-	# agvs = AGV_module(robotObjects[2])
-	agvs = AGV_module()
+	agvs = AGV_module(robotObjects[2])
+	# agvs = AGV_module()
 	lastState = 0
 	while motionPlan.main_body(q, t, agvs) is False:
 		curState = motionPlan.kitting_state
