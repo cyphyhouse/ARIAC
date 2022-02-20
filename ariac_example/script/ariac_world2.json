@@ -10,7 +10,7 @@
         {
             "name": "gantry",
             "type": "gantry",
-            "pose": [-4, 0, 0.7],
+            "pose": [-4, 0, 2],
             "x_rail_range": [-14.4, 2.4],
             "y_rail_range": [-2.75, 2.75]
         },

@@ -96,21 +96,25 @@ def control_conveyor(power):
 	except rospy.ServiceException as exc:
 		print("Service did not process request: " + str(exc))
 
-def find_alphabeta(x, z):
+# finds shoulder lift and elbow angle joints to achieve desired (coord1, coord2) pose
+# Inputs : desired pose - desired pose of end effector, either (x,z) or (y,z)
+#          robot_world_pose - shoulder link pose of kitting/gantry robot
+def find_alphabeta(desired_pose, robot_world_pose):
 	r1 = 0.61215	# range of motion of shoulder lift joint
 	r2 = 0.57235	# range of motion of elbow joint
 	#r1 = 0.573 # length of upper arm link (radius of its range of motion)
 	#r2 = 0.400 # length of forearm link
 
 	# CHANGE JSON: -1.3, 1.1264
-	ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
+	ab = new_euclidean_dist(robot_world_pose, desired_pose)
+	# ab = euclidean_dist(-1.3, 1.1264, x, z) # dist from kitting base joint to desired (x,z) point (a + b in proof)
 	# ab = distance.euclidean((-1.3, 1.1264), (x,z))   # ab is dist from kitting base joint to desired (x,z) point (a + b in proof)
 	beta = law_cosines_gamma(r1, r2, ab)
 
 	a1 = law_cosines_gamma(r1, ab, r2)
-	a2 = math.acos((abs(x+1.3))/ab)
+	a2 = math.acos((abs(desired_pose[0]+1.3))/ab)
 	# alpha = alpha' + alpha'' if goal z is above start z
-	if z >= 1.1264:
+	if desired_pose[1] >= 1.1264:
 		alpha = a1 + a2
 	else:
 		alpha = a1 - a2
@@ -120,6 +124,17 @@ def find_alphabeta(x, z):
 	# the above might need additional changes (e.g. abs val, etc) when trying to grab stuff on other side
 
 	return (alpha, beta)
+
+def find_alphabeta_gantry(desired_pose, robot_world_pose):
+	r1 = 0.61215
+	r2 = 0.57235
+	
+	ab = new_euclidean_dist(robot_world_pose, desired_pose)
+	alpha = -law_cosines_gamma(r1, ab, r2)   # negative since we will always take outward bending joint angles
+	beta = law_cosines_gamma(r1, r2, ab)
+
+	return (alpha, beta)
+	
 
 def euclidean_dist(x1, z1, x2, z2):
 	return math.sqrt((x2-x1)**2 + (z2-z1)**2)
@@ -213,6 +228,7 @@ class GantryRobot:
 		self.x_rail_range = x_rail_range   # [x_min, x_max]
 		self.y_rail_range = y_rail_range   # [y_min, y_max]
 		self.arm_r = arm_r
+		self.torso_to_arm = 0.637
 		self.id = id_count
 
 	# TODO
@@ -508,9 +524,9 @@ class MoveitRunner():
 		print(conveyor_side)
 		# Finding alpha (shoulder lift angle) and beta (elbow joint angle)
 		if conveyor_side:
-			alpha, beta = find_alphabeta(x-0.1158, z+0.1)	# adjust these values to account for wrist lengths
+			alpha, beta = find_alphabeta([x-0.1158, z+0.1], self.robotObject.pose[0::2])	# adjust these values to account for wrist lengths
 		else:
-			alpha, beta = find_alphabeta(x+0.1154, z+0.1)
+			alpha, beta = find_alphabeta([x+0.1154, z+0.1], self.robotObject.pose[0::2])
 
 		cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
 
@@ -546,6 +562,86 @@ class MoveitRunner():
 
 		# TODO: eventually want to check with tf frames if move was successful or not
 		return x, y, z
+
+	# torso_rotation: angle (in radians) of torso rotation in CCW orientation
+	def gantry_goto_pose(self, x, y, z, torso_rotation):
+		# Bounds checking
+		if x > self.robotObject.x_rail_range[1] or x < self.robotObject.x_rail_range[0]:
+			print("gantry_goto_pose error: outside x-range bounds")
+			return False
+		if y > self.robotObject.y_rail_range[1] or y < self.robotObject.y_rail_range[0]:
+			print("gantry_goto_pose error: outside y-range bounds")
+			return False
+		# mult robot
+		gantryRobot = robotObjects[1][0]
+		if z > gantryRobot.pose[2] + gantryRobot.arm_r or z < gantryRobot.pose[2] - gantryRobot.arm_r:
+			print("gantry_goto_pose error: outside z-range bounds")
+		
+		cur_arm_pose = moveit_runner_gantry.groups['gantry_arm'].get_current_joint_values()
+		cur_torso_pose = moveit_runner_gantry.groups['gantry_torso'].get_current_joint_values()
+		cur_gantry_pose = moveit_runner_gantry.groups['gantry_full'].get_current_joint_values()
+
+		# torso rails
+		cur_gantry_pose[0] = x + gantryRobot.torso_to_arm * math.sin(torso_rotation) + 2   # +2 for difference between joint_value and x-coord
+		cur_gantry_pose[1] = (-1 * y) + gantryRobot.torso_to_arm * math.cos(torso_rotation)
+
+		# small adjustment for torso rails to give arm enough room to operate
+		if torso_rotation == 0:
+			cur_gantry_pose[1] += 0.55
+		elif torso_rotation == math.pi:
+			cur_gantry_pose[1] -= 0.55
+		elif torso_rotation == math.pi/2:
+			cur_gantry_pose[0] += 0.55
+		elif torso_rotation == -math.pi/2:
+			cur_gantry_pose[0] -= 0.55
+		else:
+			print("gantry_goto_pose error: Arbitrary torso rotation not yet implemented")
+			exit()
+
+
+		# Torso rotation
+		cur_gantry_pose[2] = torso_rotation
+
+		# for now, always keeping pan joint at 0
+		cur_gantry_pose[3] = 0
+
+		# shoulder lift (4) and elbow (5) joint
+		if torso_rotation == 0:
+			alpha, beta = find_alphabeta_gantry([y, z], [y-0.55, 2])
+			print("alpha:", alpha)
+			print("beta:", beta)
+			# alpha, beta = find_alphabeta_gantry([y+0.1158, z+0.1], [y, 2])	  # adjustments for wrist1 -> ee difference
+		elif torso_rotation == math.pi:
+			alpha, beta = find_alphabeta_gantry([y, z], [y+0.55, 2])
+		elif torso_rotation == math.pi/2:
+			alpha, beta = find_alphabeta_gantry([x, z], [x-0.55, 2])
+		elif torso_rotation == -math.pi/2:
+			alpha, beta = find_alphabeta_gantry([x, z], [x+0.55, 2])
+
+
+		# affects x-z plane
+		# elif torso_rotation == -math.pi/2 or torso_rotation == math.pi/2:
+		# 	alpha, beta = find_alphabeta_gantry([x+0.1148, z+0.1], [x, 2])
+		# else:
+		# 	print("gantry goto_pose error: Arbitrary torso rotation functionality not yet implemented")
+		# 	return False
+		# cur_gantry_pose[4] = alpha
+		# cur_gantry_pose[5] = beta
+
+		# wrist 1 joint, to get flat ee: w1 = -(shoulder_lift + elbow)
+		cur_gantry_pose[6] = -1*(cur_gantry_pose[4] + cur_gantry_pose[5])
+
+		# wrist 2 joint - always pi/2 for now to keep it flat
+		cur_gantry_pose[7] = math.pi/2
+
+		# wrist 3 joint
+		cur_gantry_pose[8] = 0
+
+		print('going to:', cur_gantry_pose)
+		self.groups['gantry_full'].go(cur_gantry_pose, wait=True)
+		self.groups['gantry_full'].stop()
+
+		return True
 
 class GripperManager():
 	def __init__(self, ns):
@@ -865,7 +961,16 @@ if __name__ == '__main__':
 
 	gantry_group_names = ['gantry_full', 'gantry_arm', 'gantry_torso']
 	moveit_runner_gantry = MoveitRunner(gantry_group_names, robotObjects[1][0], ns='/ariac/gantry')
+	gantry_arm = moveit_runner_gantry.groups['gantry_arm']
+	gantry_arm.set_end_effector_link("gantry_arm_vacuum_gripper_link")
+	gantry_torso = moveit_runner_gantry.groups['gantry_torso']
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
+
+	# testing gantry goto pose
+	# moveit_runner_gantry.gantry_goto_pose(-4,0,0.7,0)
+	# moveit_runner_kitting.goto_pose(-1, 0.4, 0.9)
+
+	exit()
 
 	order = {"assembly_battery_green": 1}
 
