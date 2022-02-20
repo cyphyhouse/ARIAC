@@ -712,7 +712,7 @@ class Conveyor_Sensor_module():
 
 # AGV_TOP = -2.35								# x-value of top row on AGVs
 # AGV_LEFT = [4.5, 1.19, -1.51, -4.88]		# y-value of left cols on AGVs (1-4)
-AGV_ROW_SPACE = 0.14	# x-value of dist between rows on AGV
+AGV_ROW_SPACE = 0	# x-value of dist between rows on AGV
 AGV_COL_SPACE = 0.18	# y-value of dist between cols on AGV
 
 class AGV_module():
@@ -968,9 +968,6 @@ if __name__ == '__main__':
 
 	# testing gantry goto pose
 	# moveit_runner_gantry.gantry_goto_pose(-4,0,0.7,0)
-	# moveit_runner_kitting.goto_pose(-1, 0.4, 0.9)
-
-	exit()
 
 	order = {"assembly_battery_green": 1}
 
