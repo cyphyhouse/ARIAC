@@ -640,11 +640,11 @@ class MoveitRunner():
 			print("beta:", beta)
 			# alpha, beta = find_alphabeta_gantry([y+0.1158, z+0.1], [y, 2])	  # adjustments for wrist1 -> ee difference
 		elif torso_rotation == math.pi:
-			alpha, beta = find_alphabeta_gantry([y-(w1_to_ee[1] * -1), z-w1_to_ee[2]], [y+0.55, 2])
+			alpha, beta = find_alphabeta_gantry([y-(w1_to_ee[1] * -1), z-w1_to_ee[2]], [y, 2])
 		elif torso_rotation == -math.pi/2:
-			alpha, beta = find_alphabeta_gantry([x-w1_to_ee[0], z-w1_to_ee[2]], [x+0.55, 2])
+			alpha, beta = find_alphabeta_gantry([x-w1_to_ee[0], z-w1_to_ee[2]], [x, 2])
 		elif torso_rotation == math.pi/2:
-			alpha, beta = find_alphabeta_gantry([x-(w1_to_ee[0] * -1), z-w1_to_ee[2]], [x-0.55, 2])
+			alpha, beta = find_alphabeta_gantry([x-(w1_to_ee[0] * -1), z-w1_to_ee[2]], [x, 2])
 		else:
 			print("gantry goto_pose error: Arbitrary torso rotation functionality not yet implemented")
 			return False
@@ -998,7 +998,7 @@ if __name__ == '__main__':
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
 	# testing gantry goto pose
-	moveit_runner_gantry.gantry_goto_pose(-4,0,0.76,0)
+	moveit_runner_gantry.gantry_goto_pose(-4,0.0,0.81,math.pi)
 	exit()
 
 	order = {"assembly_battery_green": 1}
