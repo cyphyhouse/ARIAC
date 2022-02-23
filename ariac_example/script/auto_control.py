@@ -128,10 +128,18 @@ def find_alphabeta(desired_pose, robot_world_pose):
 def find_alphabeta_gantry(desired_pose, robot_world_pose):
 	r1 = 0.61215
 	r2 = 0.57235
+	print('desired pose:', desired_pose)
+	print('robot world pose:', robot_world_pose)
 	
 	ab = new_euclidean_dist(robot_world_pose, desired_pose)
-	alpha = -law_cosines_gamma(r1, ab, r2)   # negative since we will always take outward bending joint angles
-	beta = law_cosines_gamma(r1, r2, ab)
+	# current version always gets outward angle: alpha = alpha_0 + 2*alpha_prime
+	# if want inward angle, use: alpha = alpha_0 and invert beta
+	alpha_0 = math.acos((abs(desired_pose[1] - robot_world_pose[1]))/ab)
+	alpha_prime = law_cosines_gamma(r1, ab, r2)
+	alpha = alpha_0 + alpha_prime
+
+	alpha = -alpha   # moving shoulder joint up is 
+	beta = math.pi - law_cosines_gamma(r1, r2, ab)
 
 	return (alpha, beta)
 	
@@ -182,6 +190,9 @@ def reachable(a, b):
 
 # Uses law of cosines to find the angle (in radians) of the side opposite of c
 def law_cosines_gamma(a, b, c):
+	print('a:', a)
+	print('b:', b)
+	print('c:', c)
 	return math.acos((a**2 + b**2 - c**2)/(2*a*b))
 
 def bounds_checking(x, z, robotObject):
@@ -587,13 +598,13 @@ class MoveitRunner():
 
 		# small adjustment for torso rails to give arm enough room to operate
 		if torso_rotation == 0:
-			cur_gantry_pose[1] += 0.55
+			cur_gantry_pose[1] += 0.0
 		elif torso_rotation == math.pi:
-			cur_gantry_pose[1] -= 0.55
+			cur_gantry_pose[1] -= 0.0
 		elif torso_rotation == math.pi/2:
-			cur_gantry_pose[0] += 0.55
+			cur_gantry_pose[0] += 0.0
 		elif torso_rotation == -math.pi/2:
-			cur_gantry_pose[0] -= 0.55
+			cur_gantry_pose[0] -= 0.0
 		else:
 			print("gantry_goto_pose error: Arbitrary torso rotation not yet implemented")
 			exit()
@@ -606,17 +617,22 @@ class MoveitRunner():
 		cur_gantry_pose[3] = 0
 
 		# shoulder lift (4) and elbow (5) joint
+		w1_to_ee = [-0.115, -0.115, -0.1]   # distance from wrist 1 to ee (at torso rotation = 0)
+
 		if torso_rotation == 0:
-			alpha, beta = find_alphabeta_gantry([y, z], [y-0.55, 2])
+			alpha, beta = find_alphabeta_gantry([y-w1_to_ee[1], z-w1_to_ee[2]], [y, 2])
 			print("alpha:", alpha)
 			print("beta:", beta)
 			# alpha, beta = find_alphabeta_gantry([y+0.1158, z+0.1], [y, 2])	  # adjustments for wrist1 -> ee difference
 		elif torso_rotation == math.pi:
-			alpha, beta = find_alphabeta_gantry([y, z], [y+0.55, 2])
-		elif torso_rotation == math.pi/2:
-			alpha, beta = find_alphabeta_gantry([x, z], [x-0.55, 2])
+			alpha, beta = find_alphabeta_gantry([y-(w1_to_ee[1] * -1), z-w1_to_ee[2]], [y+0.55, 2])
 		elif torso_rotation == -math.pi/2:
-			alpha, beta = find_alphabeta_gantry([x, z], [x+0.55, 2])
+			alpha, beta = find_alphabeta_gantry([x-w1_to_ee[0], z-w1_to_ee[2]], [x+0.55, 2])
+		elif torso_rotation == math.pi/2:
+			alpha, beta = find_alphabeta_gantry([x-(w1_to_ee[0] * -1), z-w1_to_ee[2]], [x-0.55, 2])
+		else:
+			print("gantry goto_pose error: Arbitrary torso rotation functionality not yet implemented")
+			return False
 
 
 		# affects x-z plane
@@ -625,8 +641,8 @@ class MoveitRunner():
 		# else:
 		# 	print("gantry goto_pose error: Arbitrary torso rotation functionality not yet implemented")
 		# 	return False
-		# cur_gantry_pose[4] = alpha
-		# cur_gantry_pose[5] = beta
+		cur_gantry_pose[4] = alpha
+		cur_gantry_pose[5] = beta
 
 		# wrist 1 joint, to get flat ee: w1 = -(shoulder_lift + elbow)
 		cur_gantry_pose[6] = -1*(cur_gantry_pose[4] + cur_gantry_pose[5])
@@ -967,7 +983,8 @@ if __name__ == '__main__':
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
 	# testing gantry goto pose
-	# moveit_runner_gantry.gantry_goto_pose(-4,0,0.7,0)
+	moveit_runner_gantry.gantry_goto_pose(-4,0,0.76,0)
+	exit()
 
 	order = {"assembly_battery_green": 1}
 
