@@ -240,6 +240,7 @@ class GantryRobot:
 		self.y_rail_range = y_rail_range   # [y_min, y_max]
 		self.arm_r = arm_r
 		self.torso_to_arm = 0.637
+		self.shoulder_ee_last_dim = 0.16   # if rot = 0, pi: x-dim; if rot = pi/2, -pi/2: y-dim
 		self.id = id_count
 
 	# TODO
@@ -595,6 +596,20 @@ class MoveitRunner():
 		# torso rails
 		cur_gantry_pose[0] = x + gantryRobot.torso_to_arm * math.sin(torso_rotation) + 2   # +2 for difference between joint_value and x-coord
 		cur_gantry_pose[1] = (-1 * y) + gantryRobot.torso_to_arm * math.cos(torso_rotation)
+		# account for third-dimension (x for rot = 0, pi; y for rot = pi/2, -pi/2)
+		# cur_gantry_pose[0] = x + gantryRobot.shoulder_ee_last_dim*math.sin(torso_rotation)   # assuming pan_joint = 0
+		if torso_rotation == 0:
+			cur_gantry_pose[0] += gantryRobot.shoulder_ee_last_dim
+		elif torso_rotation == math.pi:
+			cur_gantry_pose[0] -= gantryRobot.shoulder_ee_last_dim
+		elif torso_rotation == math.pi/2:
+			cur_gantry_pose[1] += gantryRobot.shoulder_ee_last_dim
+		elif torso_rotation == -math.pi/2:
+			cur_gantry_pose[1] -= gantryRobot.shoulder_ee_last_dim
+		else:
+			print("gantry_goto_pose error: Arbitrary torso rotation not yet implemented")
+			exit()
+
 
 		# small adjustment for torso rails to give arm enough room to operate
 		if torso_rotation == 0:
@@ -983,8 +998,8 @@ if __name__ == '__main__':
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
 	# testing gantry goto pose
-	# moveit_runner_gantry.gantry_goto_pose(-4,0,0.76,0)
-	# exit()
+	moveit_runner_gantry.gantry_goto_pose(-4,0,0.76,0)
+	exit()
 
 	order = {"assembly_battery_green": 1}
 
