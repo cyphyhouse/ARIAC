@@ -983,8 +983,8 @@ if __name__ == '__main__':
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
 	# testing gantry goto pose
-	moveit_runner_gantry.gantry_goto_pose(-4,0,0.76,0)
-	exit()
+	# moveit_runner_gantry.gantry_goto_pose(-4,0,0.76,0)
+	# exit()
 
 	order = {"assembly_battery_green": 1}
 
