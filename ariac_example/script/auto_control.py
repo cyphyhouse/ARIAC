@@ -256,6 +256,7 @@ class AGVRobot:
 		self.type = 'agv'
 		self.name = name
 		self.cur_pos = pose
+		self.cur_state = 'start'   # start, near, or far
 		self.start_shape = Line(pose, 2, [0.81, 2])   # starting pose's vertical line
 		self.destinations = []
 		self.shape = []   # list of vertical lines
@@ -748,9 +749,15 @@ class Conveyor_Sensor_module():
 # Out of all AGV-sensors, returns a list of items to grab when they are ready
 def agv_sensors(agvObject):
 	if agvObject.name == 'agv2':
-		x = [get_logical_camera_agv2_as1_data(), get_logical_camera_agv2_as2_data()]
-		print("x:", x)
-		return x[0].models if len(x[1]) == 0 else x[1].models
+		items = []
+		data_as1 = get_logical_camera_agv2_as1_data()
+		data_as2 = get_logical_camera_agv2_as2_data()
+		for i in data_as1.models:
+			items.append(i)
+		for i in data_as2.models:
+			items.append(i)
+
+		return items
 	else:
 		print('agv_sensor error: No matching function call for AGV. Try renaming AGVs to agv1, agv2, etc.')
 		exit()
@@ -770,7 +777,9 @@ class AGV_module():
 	# Input: A - AGVObject of specified AGV
 	# Returns x-y coordinates of next available spot on specified AGV
 	def get_new_loc(self, A):
-		return (A.cur_pos[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.cur_pos[1] + AGV_COL_SPACE*(A.num_items % 3))
+		# for now, placing items further away from tip to avoid gantry collision issues later
+		return (0.16 + A.cur_pos[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.cur_pos[1] + AGV_COL_SPACE*(A.num_items % 3))
+		# return (A.cur_pos[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.cur_pos[1] + AGV_COL_SPACE*(A.num_items % 3))
 	
 	# def get_new_loc(self, agv_num):
 	# 	if agv_num == 1:
@@ -788,7 +797,17 @@ class AGV_module():
 	def update_agv_done(self, agv_num):
 		self.used_agvs[agv_num-1] = True
 
-
+def get_station(agvObject):
+	if agvObject.name == 'agv1' or agvObject.name == 'agv2':
+		if agvObject.cur_state == 'near':
+			return 'as1'
+		else:
+			return 'as2'
+	else:
+		if agvObject.cur_state == 'near':
+			return 'as3'
+		else:
+			return 'as4'
 
 class Follow_points():
 	def __init__(self, moveit_runner_kitting, gm):
@@ -852,6 +871,7 @@ class Follow_points():
 			for i in range(1,11):
 				source_frame = 'logical_camera_conveyor_frame'
 				target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
+				print('target frame kitting:', target_frame)
 				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
 				# tfBuffer = tf2_ros.Buffer()
 				# listener = tf2_ros.TransformListener(tfBuffer)
@@ -951,11 +971,15 @@ class Follow_points():
 					if near:
 						move_agvs(agvObject, 'near')
 						rospy.sleep(4.5)
+						agvObject.cur_state = 'near'
 						g.append(agvObject)
+						print("g:", g)
 					else:
 						move_agvs(agvObject, 'far')
 						rospy.sleep(7.5)
+						agvObject.cur_state = 'far'
 						g.append(agvObject)
+						print("g:", g)
 					agvObject.used = True
 			
 			q.put("done")
@@ -989,19 +1013,57 @@ class GantryStateMachine():
 		# State 2: move to desired AGV and pick up 
 		if self.gantry_state == 2:
 			self.gm.activate_gripper()
-			agvObject = g.pop(0)
+
+			print("g in fsm:", g)
+
+			if len(g) == 0:
+				self.gantry_state = 1
+				return False
+			agvObject = g[0]
+
 			models_detected = agv_sensors(agvObject)   # list of items detected by each agv-sensor
-			print('---------- data --------')
-			for m in models_detected:
-				print('-----new-----')
-				print(m)
 			if len(models_detected) != 0:
-				self.target = models_detected.pop(0)
+				self.target = models_detected.pop(0).type
 			else:
 				self.gantry_state = 5
 
-			# move to gantry to target item + buffer height
+			station = get_station(agvObject)
 			
+			# read from trial config file to change hardcoded value
+			for i in range(1,11):
+				source_frame = 'logical_camera_' + str(agvObject.name) + '_' + station + '_frame'
+				print('source frame:', source_frame)
+				# source_frame = 'logical_camera_agv2_as1'
+				print('agvobject name:', agvObject.name)
+				print('station:', station)
+				print('target:', self.target)
+				print('i:', i)
+				print('i str:', str(i))
+				target_frame = str('logical_camera_' + agvObject.name + '_' + station + '_' + self.target + '_' + str(i) + '_frame')
+				print('target frame:', target_frame)
+				# target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
+				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
+				if world_pose is not None:
+					print(target_frame)
+					print(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z)
+					break
+
+			if world_pose is None:
+				self.gantry_state = 0
+				return False
+
+			# move to gantry to target item + buffer height
+			item_height = ""
+			if "battery" in self.target:
+				item_height = BATTERY_HEIGHT
+			elif "sensor" in self.target:
+				item_height = SENSOR_HEIGHT
+			else:
+				item_height = REGULATOR_HEIGHT
+			
+			height_buffer = 0.03
+			self.moveit_runner_gantry.gantry_goto_pose([world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + item_height + height_buffer, math.pi/2])
+
 			self.gantry_state = 3
 			return False
 
@@ -1018,6 +1080,7 @@ class GantryStateMachine():
 
 		# State 4: move to briefcase (specific location within depending on item type)
 		if self.gantry_state == 4:
+			# PICKUP: finish this state, pretty sure works up to here
 			# move above right location
 			# drop item
 			self.gantry_state = 2
