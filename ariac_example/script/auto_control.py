@@ -83,6 +83,12 @@ def get_breakbeam_flat_sensor_data():
 def get_logical_camera_conveyor_data():
 	data = rospy.wait_for_message('/ariac/logical_camera_conveyor', LogicalCameraImage)
 	return data
+def get_logical_camera_agv2_as1_data():
+	data = rospy.wait_for_message('/ariac/logical_camera_agv2_as1', LogicalCameraImage)
+	return data
+def get_logical_camera_agv2_as2_data():
+	data = rospy.wait_for_message('/ariac/logical_camera_agv2_as2', LogicalCameraImage)
+	return data
 
 def control_conveyor(power):
 	if power < 0 or power > 100:
@@ -190,15 +196,11 @@ def reachable(a, b):
 
 # Uses law of cosines to find the angle (in radians) of the side opposite of c
 def law_cosines_gamma(a, b, c):
-	print('a:', a)
-	print('b:', b)
-	print('c:', c)
 	return math.acos((a**2 + b**2 - c**2)/(2*a*b))
 
 def bounds_checking(x, z, robotObject):
 	a = [x,z]
 	b = robotObject.pose[0::2]
-	print("bounds error:", new_euclidean_dist(a, b))
 	return True if new_euclidean_dist(a, b) <= robotObject.max_r else False
 
 class KittingRobot:
@@ -266,6 +268,7 @@ class AGVRobot:
 		self.ready = False   # signal denotes ready to move?
 		self.used = False
 		self.num_items = 0
+		self.carrying_items = {}   # item : quantity
 		
 class ConveyorRobot:
 	def __init__(self, name, pose, orient, orient_range, id_count):
@@ -576,7 +579,8 @@ class MoveitRunner():
 		return x, y, z
 
 	# torso_rotation: angle (in radians) of torso rotation in CCW orientation
-	def gantry_goto_pose(self, x, y, z, torso_rotation):
+	def gantry_goto_pose(self, pose):
+		x, y, z, torso_rotation = pose
 		# Bounds checking
 		if x > self.robotObject.x_rail_range[1] or x < self.robotObject.x_rail_range[0]:
 			print("gantry_goto_pose error: outside x-range bounds")
@@ -603,9 +607,9 @@ class MoveitRunner():
 		elif torso_rotation == math.pi:
 			cur_gantry_pose[0] -= gantryRobot.shoulder_ee_last_dim
 		elif torso_rotation == math.pi/2:
-			cur_gantry_pose[1] += gantryRobot.shoulder_ee_last_dim
-		elif torso_rotation == -math.pi/2:
 			cur_gantry_pose[1] -= gantryRobot.shoulder_ee_last_dim
+		elif torso_rotation == -math.pi/2:
+			cur_gantry_pose[1] += gantryRobot.shoulder_ee_last_dim
 		else:
 			print("gantry_goto_pose error: Arbitrary torso rotation not yet implemented")
 			exit()
@@ -740,6 +744,16 @@ class Conveyor_Sensor_module():
 			control_conveyor(100)
 			self.conveyor_state = 1
 			return False
+
+# Out of all AGV-sensors, returns a list of items to grab when they are ready
+def agv_sensors(agvObject):
+	if agvObject.name == 'agv2':
+		x = [get_logical_camera_agv2_as1_data(), get_logical_camera_agv2_as2_data()]
+		print("x:", x)
+		return x[0].models if len(x[1]) == 0 else x[1].models
+	else:
+		print('agv_sensor error: No matching function call for AGV. Try renaming AGVs to agv1, agv2, etc.')
+		exit()
 
 # AGV_TOP = -2.35								# x-value of top row on AGVs
 # AGV_LEFT = [4.5, 1.19, -1.51, -4.88]		# y-value of left cols on AGVs (1-4)
@@ -918,6 +932,10 @@ class Follow_points():
 
 			# agvs.update_agv_info(self.at_agv)
 			self.at_agv.num_items += 1
+			if self.target in self.at_agv.carrying_items:
+				self.at_agv.carrying_items[self.target] += 1
+			else:
+				self.at_agv.carrying_items[self.target] = 1
 			self.at_agv.ready = True   # LATER: multiple usage of AGVs (not just move after 1 item placed)
 
 			self.kitting_state = 0
@@ -929,12 +947,18 @@ class Follow_points():
 			# Iterate through AGVs and move the ones that are ready
 			for agvObject in robotObjects[2]:
 				if agvObject.ready:
-					move_agvs(agvObject, "near")
+					near = True   # change later
+					if near:
+						move_agvs(agvObject, 'near')
+						rospy.sleep(4.5)
+						g.append(agvObject)
+					else:
+						move_agvs(agvObject, 'far')
+						rospy.sleep(7.5)
+						g.append(agvObject)
 					agvObject.used = True
-			# move_agvs('agv2', 'as1')
+			
 			q.put("done")
-
-			# agvs.update_agv_done(2)
 
 			return True
 
@@ -943,6 +967,70 @@ class GantryStateMachine():
 		self.moveit_runner_gantry = moveit_runner_gantry
 		self.gm = gm
 		self.gantry_state = 0
+
+		self.target = None
+	
+	def main_body(self):
+		gantryRobot = robotObjects[1][0]
+		# State 0: start state for gantry robot
+		if self.gantry_state == 0:
+			start_pose = [-4, 0, 0.8, math.pi/2]   # involve level 1 consistency check?
+			self.moveit_runner_gantry.gantry_goto_pose(start_pose)
+			self.gantry_state = 1
+			return False
+
+		# State 1: wait for ready signal from AGV
+		if self.gantry_state == 1:
+			# wait for sensor/AGV modules to send signal
+			if len(g) != 0:
+				self.gantry_state = 2
+			return False
+
+		# State 2: move to desired AGV and pick up 
+		if self.gantry_state == 2:
+			self.gm.activate_gripper()
+			agvObject = g.pop(0)
+			models_detected = agv_sensors(agvObject)   # list of items detected by each agv-sensor
+			print('---------- data --------')
+			for m in models_detected:
+				print('-----new-----')
+				print(m)
+			if len(models_detected) != 0:
+				self.target = models_detected.pop(0)
+			else:
+				self.gantry_state = 5
+
+			# move to gantry to target item + buffer height
+			
+			self.gantry_state = 3
+			return False
+
+		# State 3: fine-tuned movement closer to battery
+		if self.gantry_state == 3:
+			cx = gantry_arm.get_current_pose().pose.position.x
+			cy = gantry_arm.get_current_pose().pose.position.y
+			cz = gantry_arm.get_current_pose().pose.position.z
+
+			self.moveit_runner_gantry.gantry_goto_pose([cx, cy, cz - 0.002, math.pi/2])
+			if self.gm.is_object_attached():
+				self.gantry_state = 4
+			return False
+
+		# State 4: move to briefcase (specific location within depending on item type)
+		if self.gantry_state == 4:
+			# move above right location
+			# drop item
+			self.gantry_state = 2
+			return False
+
+		# State 5: check if done with whole operation, if not return to state 1
+		if self.gantry_state == 5:
+			# if done with whole sequence, return True
+			# else return to state 1
+			return True
+
+			
+		
 
 def conveyor_loop(q, t):
 	conveyorPlan = Conveyor_Sensor_module()
@@ -967,11 +1055,17 @@ def kitting_loop(q, t):
 
 def gantry_loop(q, t):
 	gantryFSM = GantryStateMachine(moveit_runner_gantry, gantry_gm)
+	lastState = 0
+	while gantryFSM.main_body() is False:
+		curState = gantryFSM.gantry_state
+		if curState != lastState:
+			print("gantry state:", gantryFSM.gantry_state)
+		lastState = curState
 
 if __name__ == '__main__':
 
 	global robotObjects
-	robotObjects = parse_json(sys.argv[1])
+	robotObjects = parse_json(sys.argv[1])   # [kitting, gantry, agv, conveyor]
 
 	# print_robot_list(robotObjects)
 
@@ -998,13 +1092,15 @@ if __name__ == '__main__':
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
 	# testing gantry goto pose
-	moveit_runner_gantry.gantry_goto_pose(-4,0.0,0.81,math.pi)
-	exit()
+	# moveit_runner_gantry.gantry_goto_pose([-5.692,1.3814,0.81,math.pi/2])
+	# exit()
 
 	order = {"assembly_battery_green": 1}
 
 	q = Queue.Queue()	# to send signals between threads
 	t = []				# signal telling which item to grab
+	global g   # signal between AGVs and gantrys
+	g = []
 	conveyor_thread = threading.Thread(target=conveyor_loop, args = (q, t, ))
 	kitting_thread = threading.Thread(target=kitting_loop, args=(q, t, ))
 	gantry_thread = threading.Thread(target=gantry_loop, args=(q, t, ))
