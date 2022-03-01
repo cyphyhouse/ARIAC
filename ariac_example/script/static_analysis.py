@@ -244,6 +244,18 @@ def json_conveyor_check(data):
         raise Exception("Conveyor Robot ", data['name'], " has invalid length")
 
 
+def json_overlap_check(data1, data2):
+    check = 0
+    if (data1['pose'][0]-data1['box'][0]/2 >= data2['pose'][0]+data2['box'][0]/2 or data1['pose'][0]+data1['box'][0]/2 <= data2['pose'][0]-data2['box'][0]/2):
+        check = 1
+    if (data1['pose'][1]-data1['box'][1]/2 >= data2['pose'][1]+data2['box'][1]/2 or data1['pose'][1]+data1['box'][1]/2 <= data2['pose'][1]-data2['box'][1]/2):
+        check = 1
+    if (data1['pose'][2]-data1['box'][2]/2 >= data2['pose'][2]+data2['box'][2]/2 or data1['pose'][2]+data1['box'][2]/2 <= data2['pose'][2]-data2['box'][2]/2):
+        check = 1
+    if (check == 0):
+        raise Exception(data1['name'] + " and " + data2['name'] + " are overlapping.")
+
+
 def parse_json(f):
     data = json.load(f)
 
@@ -274,6 +286,11 @@ def parse_json(f):
             id_count += 1
         else:
             raise Exception("Error: Robot type ", i['type'], " does not exist")
+
+    for i in data['stationary']:
+        for j in data['stationary']:
+            if (i != j):
+                json_overlap_check(i, j)
 
     global num_robots
     num_robots = id_count

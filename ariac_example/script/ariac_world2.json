@@ -36,14 +36,58 @@
     ],
     "stationary": [
         {
-            "name": "bin1",
+            "name": "bin5",
             "type": "bin",
-            "pose": [-1.899, 3.38, 0]
+            "pose": [-1.899, -3.38, 0],
+            "box" : [0.6, 0.6, 0.72]
         },
         {
-            "name": "bin2",
+            "name": "bin6",
             "type": "bin",
-            "pose": [-1.899, 2.565, 0]
+            "pose": [-1.899, -2.565, 0],
+            "box" : [0.6, 0.6, 0.72]
+        },
+        {
+            "name": "bin7",
+            "type": "bin",
+            "pose": [-2.652, -2.565, 0],
+            "box" : [0.6, 0.6, 0.72]
+        },
+        {
+            "name": "bin8",
+            "type": "bin",
+            "pose": [-2.652, -3.38, 0],
+            "box" : [0.6, 0.6, 0.72]
+        },
+        {
+            "name": "as3",
+            "type": "assembly_station",
+            "pose": [-7.3, -3, 0],
+            "box" : [0.6, 0.6, 1.2]
+        },
+        {
+            "name": "as4",
+            "type": "assembly_station",
+            "pose": [-12.3, -3, 0],
+            "box" : [0.6, 0.6, 1.2]
+        },
+        {
+            "name": "part_collector",
+            "type": "collector",
+            "pose": [-2.186, 0, -0.055],
+            "box" : [0.6, 0.6, 1.2]
+        },
+        {
+            "name": "conveyor_collector",
+            "type": "collector",
+            "pose": [-0.577, -4, 0],
+            "box" : [0.6, 0.6, 1.2]
+        },
+        {
+            "name": "linear_rail",
+            "type": "rail",
+            "pose": [-1.3, 0, 0.93],
+            "box" : [0.2, 5.5, 0.1]
         }
     ]
 }
