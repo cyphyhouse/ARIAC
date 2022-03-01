@@ -24,7 +24,7 @@ import os
 
 # for multithreading
 import threading
-import Queue
+import queue
 
 # Battery z-value grab heights on conveyor
 BATTERY_HEIGHT = 0.03
@@ -797,7 +797,7 @@ class Follow_points():
 		self.kitting_state = 0
 		# self.conveyor_state = 0
 		self.agvs = [0, 0, 0, 0]	# 0 = unused, 1 = used
-		with open("/home/dxwu2/araic_ws/src/ARIAC/nist_gear/config/user_config/sample_user_config.yaml", "r") as f:
+		with open("/araic_ws/src/ARIAC/nist_gear/config/user_config/sample_user_config.yaml", "r") as f:
 			data = yaml.load(f)
 			# breakbeam_conveyor_pose_xyz = data['sensors']['breakbeam_conveyor']['pose']['xyz']
 		self.sensor_file = data
@@ -1097,7 +1097,7 @@ if __name__ == '__main__':
 
 	order = {"assembly_battery_green": 1}
 
-	q = Queue.Queue()	# to send signals between threads
+	q = queue.Queue()	# to send signals between threads
 	t = []				# signal telling which item to grab
 	global g   # signal between AGVs and gantrys
 	g = []
