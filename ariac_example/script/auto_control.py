@@ -492,6 +492,14 @@ def pick_place(moveit_runner_kitting, moveit_runner_gantry, kitting_gm, gantry_g
 	moveit_runner_kitting.goto_pose(dst[0], dst[1], dst[2])
 	kitting_gm.deactivate_gripper()
 
+def get_item_height(target):
+	if "battery" in target:
+		return BATTERY_HEIGHT
+	elif "sensor" in target:
+		return SENSOR_HEIGHT
+	else:
+		return REGULATOR_HEIGHT
+
 
 class MoveitRunner():
 	def __init__(self, group_names, robotObject, node_name='move_kitting',
@@ -885,13 +893,7 @@ class Follow_points():
 				self.kitting_state = 0
 				return False
 
-			item_height = ""
-			if "battery" in self.target:
-				item_height = BATTERY_HEIGHT
-			elif "sensor" in self.target:
-				item_height = SENSOR_HEIGHT
-			else:
-				item_height = REGULATOR_HEIGHT
+			item_height = get_item_height(self.target)
 			self.moveit_runner_kitting.goto_pose(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + item_height)
 			self.kitting_state = 2
 			return False
@@ -1053,14 +1055,7 @@ class GantryStateMachine():
 				return False
 
 			# move to gantry to target item + buffer height
-			item_height = ""
-			if "battery" in self.target:
-				item_height = BATTERY_HEIGHT
-			elif "sensor" in self.target:
-				item_height = SENSOR_HEIGHT
-			else:
-				item_height = REGULATOR_HEIGHT
-			
+			item_height = get_item_height(self.target)
 			height_buffer = 0.03
 			self.moveit_runner_gantry.gantry_goto_pose([world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + item_height + height_buffer, math.pi/2])
 
@@ -1081,8 +1076,16 @@ class GantryStateMachine():
 		# State 4: move to briefcase (specific location within depending on item type)
 		if self.gantry_state == 4:
 			# PICKUP: finish this state, pretty sure works up to here
-			# move above right location
+			item_height = get_item_height(self.target)
+			cx = gantry_arm.get_current_pose().pose.position.x
+			moveit_runner_gantry.gantry_goto_pose([cx, 3.1, 1.4 + item_height, math.pi/2])
+			moveit_runner_gantry.gantry_goto_pose([-7.1, 3.1, 1.4 + item_height, math.pi/2])
+		
 			# drop item
+			self.gm.deactivate_gripper()
+
+			# move robot out of the way
+			moveit_runner_gantry.gantry_goto_pose([-6, 3.1, 1.4 + item_height, math.pi/2])
 			self.gantry_state = 2
 			return False
 
@@ -1155,7 +1158,7 @@ if __name__ == '__main__':
 	gantry_gm = GripperManager(ns='/ariac/gantry/arm/gripper/')
 
 	# testing gantry goto pose
-	# moveit_runner_gantry.gantry_goto_pose([-5.692,1.3814,0.81,math.pi/2])
+	# moveit_runner_gantry.gantry_goto_pose([-7.1, 3.1, 1.4, math.pi/2])
 	# exit()
 
 	order = {"assembly_battery_green": 1}

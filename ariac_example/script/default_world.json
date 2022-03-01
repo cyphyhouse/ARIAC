@@ -44,6 +44,11 @@
             "name": "bin2",
             "type": "bin",
             "pose": [-1.899, 2.565, 0]
+        },
+        {
+            "name": "as1",
+            "type": "station",
+            "pose": [-7.3, 3.0, 0.0]
         }
     ]
 }
