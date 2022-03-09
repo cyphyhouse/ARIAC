@@ -982,7 +982,7 @@ class GantryStateMachine():
 		self.gm = gm
 		self.gantry_state = 0
 
-		self.cur_rotation
+		self.cur_rotation = None
 		self.target = None
 	
 	def main_body(self):
@@ -1069,9 +1069,15 @@ class GantryStateMachine():
 
 		# State 4: move to briefcase (specific location within depending on item type)
 		if self.gantry_state == 4:
-			# PICKUP: finish this state, pretty sure works up to here
-			item_height = get_item_height(self.target)
+			# Lift item so it doesn't bump other items on the AGV
 			cx = gantry_arm.get_current_pose().pose.position.x
+			cy = gantry_arm.get_current_pose().pose.position.y
+			cz = gantry_arm.get_current_pose().pose.position.z
+
+			moveit_runner_gantry.gantry_goto_pose([cx, cy, cz+0.1])
+			
+			item_height = get_item_height(self.target)
+			
 			moveit_runner_gantry.gantry_goto_pose([cx, 3.1, 1.4 + item_height, math.pi/2])
 			moveit_runner_gantry.gantry_goto_pose([-7.1, 3.1, 1.4 + item_height, math.pi/2])
 		
