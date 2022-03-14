@@ -26,6 +26,9 @@ import os
 import threading
 import Queue
 
+# for deep copy
+import copy
+
 # Battery z-value grab heights on conveyor
 BATTERY_HEIGHT = 0.03
 SENSOR_HEIGHT = 0.048
@@ -82,12 +85,11 @@ def get_breakbeam_flat_sensor_data():
 def get_logical_camera_conveyor_data():
 	data = rospy.wait_for_message('/ariac/logical_camera_conveyor', LogicalCameraImage)
 	return data
-def get_logical_camera_agv2_as1_data():
-	data = rospy.wait_for_message('/ariac/logical_camera_agv2_as1', LogicalCameraImage)
+def get_logical_camera_agv_as_data(agv_num, as_num):
+	rostopic_str = '/ariac/logical_camera_agv' + str(agv_num) + '_as' + str(as_num)
+	data = rospy.wait_for_message(rostopic_str, LogicalCameraImage)
 	return data
-def get_logical_camera_agv2_as2_data():
-	data = rospy.wait_for_message('/ariac/logical_camera_agv2_as2', LogicalCameraImage)
-	return data
+	
 
 def control_conveyor(power):
 	if power < 0 or power > 100:
@@ -765,19 +767,19 @@ class Conveyor_Sensor_module():
 
 # Out of all AGV-sensors, returns a list of items to grab when they are ready
 def agv_sensors(agvObject):
-	if agvObject.name == 'agv2':
-		items = []
-		data_as1 = get_logical_camera_agv2_as1_data()
-		data_as2 = get_logical_camera_agv2_as2_data()
-		for i in data_as1.models:
-			items.append(i)
-		for i in data_as2.models:
-			items.append(i)
-
-		return items
-	else:
-		print('agv_sensor error: No matching function call for AGV. Try renaming AGVs to agv1, agv2, etc.')
+	agv_num = int(agvObject.name[-1:])
+	if agv_num < 1 or agv_num > 4:
+		print('agv_sensor error: No matching function call for agv' + str(agv_num) + '. Try renaming AGVs to agv1, agv2, etc.')
 		exit()
+
+	items = []
+	data_as1 = get_logical_camera_agv_as_data(agv_num,1)   # near assembly station
+	data_as2 = get_logical_camera_agv_as_data(agv_num,2)   # far assembly station
+	for i in data_as1.models:
+		items.append(i)
+	for i in data_as2.models:
+		items.append(i)
+	return items
 
 # AGV_TOP = -2.35								# x-value of top row on AGVs
 # AGV_LEFT = [4.5, 1.19, -1.51, -4.88]		# y-value of left cols on AGVs (1-4)
@@ -795,7 +797,7 @@ class AGV_module():
 	# Returns x-y coordinates of next available spot on specified AGV
 	def get_new_loc(self, A):
 		# (x,y) of top-left item position for 12-item layout
-		top_left = (A.cur_pos[0]-0.054, A.cur_pos[1]-1.5*AGV_COL_SPACE)
+		top_left = (A.cur_pos[0]-0.014, A.cur_pos[1]-1.5*AGV_COL_SPACE)
 		return (top_left[0] + AGV_ROW_SPACE*math.floor(A.num_items/3), top_left[1] + AGV_COL_SPACE*(A.num_items % 3))
 		# return (A.cur_pos[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.cur_pos[1]-AGV_COL_SPACE + AGV_COL_SPACE*(A.num_items % 3))
 	
@@ -818,7 +820,7 @@ def get_station(agvObject):
 			return 'as4'
 
 class Follow_points():
-	def __init__(self, moveit_runner_kitting, gm):
+	def __init__(self, moveit_runner_kitting, gm, N):
 		self.moveit_runner_kitting = moveit_runner_kitting
 		self.gm = gm
 		self.kitting_state = 0
@@ -831,6 +833,9 @@ class Follow_points():
 		# self.items_needed = order
 		self.target = ""
 		self.at_agv = None
+
+		# Tunable parameter: represents number of items on AGV before shipping it to gantry
+		self.N = N
 
 	def main_body(self, q, t, agvs):
 		# Start state for kitting robot: Kitting robot may be out of position
@@ -925,6 +930,7 @@ class Follow_points():
 					closest_agv_list = new_euclidean_dist(cur_pose, i.cur_pos[0:2])
 			(drop_x, drop_y) = agvs.get_new_loc(closest_agv)
 			self.at_agv = closest_agv   # save this now so we can update info later
+			print("dropping item at ", self.at_agv.name)
 
 			drop_height = 0.85
 			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, drop_height)   # mult robot change
@@ -955,17 +961,19 @@ class Follow_points():
 				self.at_agv.carrying_items[self.target] += 1
 			else:
 				self.at_agv.carrying_items[self.target] = 1
-			self.at_agv.ready = True   # LATER: multiple usage of AGVs (not just move after 1 item placed)
 
-			self.kitting_state = 0
+			if self.at_agv.num_items == self.N:
+				self.at_agv.ready = True   # LATER: multiple usage of AGVs (not just move after 1 item placed)
+
+			self.kitting_state = 5
 			return False
 
-		# State 5: Transport to Gantry Robot
+		# State 5: (potentially) move AGVs
 		if self.kitting_state == 5:
-			rospy.sleep(2.0)
 			# Iterate through AGVs and move the ones that are ready
 			for agvObject in robotObjects[2]:
 				if agvObject.ready:
+					rospy.sleep(2.0)
 					near = True   # change later
 					if near:
 						move_agvs(agvObject, 'near')
@@ -979,8 +987,22 @@ class Follow_points():
 						g.append(agvObject)
 					agvObject.used = True
 			
-			q.put("done")
+			# q.put("done")
+			self.kitting_state = 6
+			return False
+		
+		# State 6: either loop back to continue moving stuff, or done
+		if self.kitting_state = 6:
+			items_moved = 0
+			AGVObjects = robotObjects[2]
+			for i in AGVObjects:
+				items_moved += i.num_items
+			
+			if items_moved < order.num_items:
+				self.kitting_state = 0
+				return False
 
+			q.put("done")
 			return True
 
 class GantryStateMachine():
@@ -1117,9 +1139,8 @@ def conveyor_loop(q, t):
 			print("conveyor state:", conveyorPlan.conveyor_state)
 		lastState = curState
 
-
-def kitting_loop(q, t):
-	kittingFSM = Follow_points(moveit_runner_kitting, kitting_gm)
+def kitting_loop(q, t, N):
+	kittingFSM = Follow_points(moveit_runner_kitting, kitting_gm, N)
 	agvs = AGV_module(robotObjects[2])
 	# agvs = AGV_module()
 	lastState = 0
@@ -1172,13 +1193,18 @@ if __name__ == '__main__':
 	# exit()
 
 	order = {"assembly_battery_green": 2, "assembly_battery_blue": 2}
+	num_agvs = len(robotObjects[2])
+	N = 12   # tunable parameter: how many items on AGV before it is shipped
+	if math.ceil(sum(order.values()) / N) > num_agvs:
+		print("Error: not enough AGVs for the number of orders")
+		exit()
 
 	q = Queue.Queue()	# to send signals between threads
 	t = []				# signal telling which item to grab
 	global g   # signal between AGVs and gantrys
 	g = []
 	conveyor_thread = threading.Thread(target=conveyor_loop, args = (q, t, ))
-	kitting_thread = threading.Thread(target=kitting_loop, args=(q, t, ))
+	kitting_thread = threading.Thread(target=kitting_loop, args=(q, t, N, ))
 	gantry_thread = threading.Thread(target=gantry_loop, args=(q, t, ))
 
 	conveyor_thread.start()
