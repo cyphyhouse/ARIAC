@@ -770,11 +770,16 @@ def agv_sensors(agvObject):
 		exit()
 
 	items = []
-	data_as1 = get_logical_camera_agv_as_data(agv_num,1)   # near assembly station
-	data_as2 = get_logical_camera_agv_as_data(agv_num,2)   # far assembly station
-	for i in data_as1.models:
+	if agv_num == 1 or agv_num == 2:
+		data_as_near = get_logical_camera_agv_as_data(agv_num,1)   # near assembly station
+		data_as_far = get_logical_camera_agv_as_data(agv_num,2)   # far assembly station
+	else:
+		data_as_near = get_logical_camera_agv_as_data(agv_num,3)   # near assembly station
+		data_as_far = get_logical_camera_agv_as_data(agv_num,4)   # far assembly station
+
+	for i in data_as_near.models:
 		items.append(i)
-	for i in data_as2.models:
+	for i in data_as_far.models:
 		items.append(i)
 	return items
 
