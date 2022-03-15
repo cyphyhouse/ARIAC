@@ -1126,24 +1126,25 @@ class GantryStateMachine():
 			item_height = get_item_height(self.target)
 			
 			if self.station == 'as1':
-				moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, math.pi/2])
+				moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, self.cur_rotation])
 				moveit_runner_gantry.gantry_goto_pose([AS1_LOC[0], AS1_LOC[1], 1.4 + item_height, math.pi/2])
 			elif self.station == 'as3':
-				moveit_runner_gantry.gantry_goto_pose([cx, AS3_LOC[1], 1.4 + item_height, math.pi/2])
+				moveit_runner_gantry.gantry_goto_pose([cx, AS3_LOC[1], 1.4 + item_height, self.cur_rotation])
 				moveit_runner_gantry.gantry_goto_pose([AS3_LOC[0], AS3_LOC[1], 1.4 + item_height, math.pi/2])
 		
 			# drop item
 			self.gm.deactivate_gripper()
 
 			rospy.sleep(1.0)
-			clear_briefcase()
 			self.num_delivered += 1
 
-			# move robot out of the way
+			# move robot out of the way (do this before clear briefcase, otherwise robot will blow up)
 			cx = gantry_arm.get_current_pose().pose.position.x
 			cy = gantry_arm.get_current_pose().pose.position.y
 			cz = gantry_arm.get_current_pose().pose.position.z
 			moveit_runner_gantry.gantry_goto_pose([cx + 1.1, cy, cz, math.pi/2])
+
+			clear_briefcase()
 
 			self.gantry_state = 2
 			return False
@@ -1223,12 +1224,12 @@ if __name__ == '__main__':
 	# moveit_runner_gantry.gantry_goto_pose([-7.1, 3.1, 1.4, math.pi/2])
 	# exit()
 
-	order = {"assembly_battery_green": 1, "assembly_battery_blue": 1}
+	order = {"assembly_battery_green": 6, "assembly_battery_blue": 6}
 	global total_output
 	total_output = sum(order.values())   # checks when we are done with operation
 
 	num_agvs = len(robotObjects[2])
-	N = 2   # tunable parameter: how many items on AGV before it is shipped
+	N = 12   # tunable parameter: how many items on AGV before it is shipped
 	if math.ceil(sum(order.values()) / N) > num_agvs:
 		print("Error: not enough AGVs for the number of orders")
 		exit()

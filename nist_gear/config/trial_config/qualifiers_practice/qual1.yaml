@@ -18,7 +18,7 @@
 
 options:
   insert_models_over_bins: true
-  belt_population_cycles: 5
+  belt_population_cycles: 6
   insert_models_over_stations: false
   gazebo_state_logging: true
 time_limit: 500
