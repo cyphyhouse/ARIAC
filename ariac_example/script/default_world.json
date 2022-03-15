@@ -61,6 +61,21 @@
             "name": "as1",
             "type": "station",
             "pose": [-7.3, 3.0, 0.0]
+        },
+        {
+            "name": "as2",
+            "type": "station",
+            "pose": [-12.3, 3.0, 0.0]
+        },
+        {
+            "name": "as3",
+            "type": "station",
+            "pose": [-7.3, -3.0, 0.0]
+        },
+        {
+            "name": "as4",
+            "type": "station",
+            "pose": [-12.3, -3.0, 0.0]
         }
     ]
 }
