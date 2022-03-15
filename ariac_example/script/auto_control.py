@@ -26,9 +26,6 @@ import os
 import threading
 import Queue
 
-# for deep copy
-import copy
-
 # Battery z-value grab heights on conveyor
 BATTERY_HEIGHT = 0.03
 SENSOR_HEIGHT = 0.048
@@ -798,7 +795,7 @@ class AGV_module():
 	def get_new_loc(self, A):
 		# (x,y) of top-left item position for 12-item layout
 		top_left = (A.cur_pos[0]-0.014, A.cur_pos[1]-1.5*AGV_COL_SPACE)
-		return (top_left[0] + AGV_ROW_SPACE*math.floor(A.num_items/3), top_left[1] + AGV_COL_SPACE*(A.num_items % 3))
+		return (top_left[0] + AGV_ROW_SPACE*math.floor(A.num_items/4), top_left[1] + AGV_COL_SPACE*(A.num_items % 4))
 		# return (A.cur_pos[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.cur_pos[1]-AGV_COL_SPACE + AGV_COL_SPACE*(A.num_items % 3))
 	
 	def update_agv_info(self, agvObject):
@@ -843,7 +840,7 @@ class Follow_points():
 			# completed order
 			# if sum(self.items_needed.values()) == 0:
 			if sum(order.values()) == 0:
-				self.kitting_state = 5	# ready to move AGV
+				self.kitting_state = 6	# done state
 				return False
 
 			start_pose = [robotObjects[3][0].pose[0], 0, 1.5]
@@ -927,10 +924,10 @@ class Follow_points():
 				cur_pose = (kitting_arm.get_current_pose().pose.position.x, kitting_arm.get_current_pose().pose.position.y)
 				if new_euclidean_dist(cur_pose, i.cur_pos[0:2]) < closest_agv_dist:
 					closest_agv = i
-					closest_agv_list = new_euclidean_dist(cur_pose, i.cur_pos[0:2])
+					closest_agv_dist = new_euclidean_dist(cur_pose, i.cur_pos[0:2])
 			(drop_x, drop_y) = agvs.get_new_loc(closest_agv)
 			self.at_agv = closest_agv   # save this now so we can update info later
-			print("dropping item at ", self.at_agv.name)
+			print("dropping item at ", str(self.at_agv.name))
 
 			drop_height = 0.85
 			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, drop_height)   # mult robot change
@@ -962,8 +959,10 @@ class Follow_points():
 			else:
 				self.at_agv.carrying_items[self.target] = 1
 
+			print('at agv num items:', self.at_agv.num_items)
+			print('N:', self.N)
 			if self.at_agv.num_items == self.N:
-				self.at_agv.ready = True   # LATER: multiple usage of AGVs (not just move after 1 item placed)
+				self.at_agv.ready = True
 
 			self.kitting_state = 5
 			return False
@@ -979,12 +978,12 @@ class Follow_points():
 						move_agvs(agvObject, 'near')
 						rospy.sleep(4.5)
 						agvObject.cur_state = 'near'
-						g.append(agvObject)
+						gq.append(agvObject)
 					else:
 						move_agvs(agvObject, 'far')
 						rospy.sleep(7.5)
 						agvObject.cur_state = 'far'
-						g.append(agvObject)
+						gq.append(agvObject)
 					agvObject.used = True
 			
 			# q.put("done")
@@ -992,18 +991,22 @@ class Follow_points():
 			return False
 		
 		# State 6: either loop back to continue moving stuff, or done
-		if self.kitting_state = 6:
+		if self.kitting_state == 6:
 			items_moved = 0
 			AGVObjects = robotObjects[2]
 			for i in AGVObjects:
 				items_moved += i.num_items
 			
-			if items_moved < order.num_items:
+			if sum(order.values()) > 0:
 				self.kitting_state = 0
 				return False
 
 			q.put("done")
 			return True
+
+# later: read from json and adjust values accordingly
+AS1_LOC = [-7.1, 3.1]
+AS3_LOC = [-7.1, -3.1]
 
 class GantryStateMachine():
 	def __init__(self, moveit_runner_gantry, gm):
@@ -1013,6 +1016,11 @@ class GantryStateMachine():
 
 		self.cur_rotation = None
 		self.target = None
+
+		self.cur_agv = None   # denotes the current AGV the gantry is grabbing items off of (type: AGVObject)
+		self.station = None
+
+		self.num_delivered = 0
 	
 	def main_body(self):
 		gantryRobot = robotObjects[1][0]
@@ -1026,7 +1034,8 @@ class GantryStateMachine():
 		# State 1: wait for ready signal from AGV
 		if self.gantry_state == 1:
 			# wait for sensor/AGV modules to send signal
-			if len(g) != 0:
+			if len(gq) != 0:
+				self.cur_agv = gq.pop(0)
 				self.gantry_state = 2
 			return False
 
@@ -1034,23 +1043,27 @@ class GantryStateMachine():
 		if self.gantry_state == 2:
 			self.gm.activate_gripper()
 
-			if len(g) == 0:
-				self.gantry_state = 1
-				return False
-			agvObject = g[0]
+			# if len(g) == 0:
+			# 	self.gantry_state = 1
+			# 	return False
+			agvObject = self.cur_agv
 
 			# go to intermediate waypoint to avoid collisions with AGV
 			cz = gantry_arm.get_current_pose().pose.position.z
 			if agvObject.name == 'agv1':
+				self.station = 'as1'
 				self.cur_rotation = 0
 				self.moveit_runner_gantry.gantry_goto_pose([-5.6,3.02,cz,self.cur_rotation])
 			elif agvObject.name == 'agv2':
+				self.station = 'as1'
 				self.cur_rotation = math.pi
 				self.moveit_runner_gantry.gantry_goto_pose([-5.6,3.02,cz,self.cur_rotation])
 			elif agvObject.name == 'agv3':
+				self.station = 'as3'
 				self.cur_rotation = 0
 				self.moveit_runner_gantry.gantry_goto_pose([-5.6,-3.02,cz,self.cur_rotation])
 			else:
+				self.station = 'as3'
 				self.cur_rotation = math.pi
 				self.moveit_runner_gantry.gantry_goto_pose([-5.6,-3.02,cz,self.cur_rotation])
 
@@ -1103,21 +1116,30 @@ class GantryStateMachine():
 			cy = gantry_arm.get_current_pose().pose.position.y
 			cz = gantry_arm.get_current_pose().pose.position.z
 
-			moveit_runner_gantry.gantry_goto_pose([cx, cy, cz+0.1])
+			moveit_runner_gantry.gantry_goto_pose([cx, cy, cz+0.1, self.cur_rotation])
 			
 			item_height = get_item_height(self.target)
 			
-			moveit_runner_gantry.gantry_goto_pose([cx, 3.1, 1.4 + item_height, math.pi/2])
-			moveit_runner_gantry.gantry_goto_pose([-7.1, 3.1, 1.4 + item_height, math.pi/2])
+			if self.station == 'as1':
+				moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, math.pi/2])
+				moveit_runner_gantry.gantry_goto_pose([AS1_LOC[0], AS1_LOC[1], 1.4 + item_height, math.pi/2])
+			elif self.station == 'as3':
+				moveit_runner_gantry.gantry_goto_pose([cx, AS3_LOC[1], 1.4 + item_height, math.pi/2])
+				moveit_runner_gantry.gantry_goto_pose([AS3_LOC[0], AS3_LOC[1], 1.4 + item_height, math.pi/2])
 		
 			# drop item
 			self.gm.deactivate_gripper()
 
 			rospy.sleep(1.0)
 			clear_briefcase()
+			self.num_delivered += 1
 
 			# move robot out of the way
-			moveit_runner_gantry.gantry_goto_pose([-6, 3.1, 1.4 + item_height, math.pi/2])
+			cx = gantry_arm.get_current_pose().pose.position.x
+			cy = gantry_arm.get_current_pose().pose.position.y
+			cz = gantry_arm.get_current_pose().pose.position.z
+			moveit_runner_gantry.gantry_goto_pose([cx + 1.1, cy, cz, math.pi/2])
+
 			self.gantry_state = 2
 			return False
 
@@ -1125,6 +1147,10 @@ class GantryStateMachine():
 		if self.gantry_state == 5:
 			# if done with whole sequence, return True
 			# else return to state 1
+			if self.num_delivered < total_output:
+				self.gantry_state = 1
+				return False
+
 			return True
 
 			
@@ -1192,17 +1218,20 @@ if __name__ == '__main__':
 	# moveit_runner_gantry.gantry_goto_pose([-7.1, 3.1, 1.4, math.pi/2])
 	# exit()
 
-	order = {"assembly_battery_green": 2, "assembly_battery_blue": 2}
+	order = {"assembly_battery_green": 1, "assembly_battery_blue": 1}
+	global total_output
+	total_output = sum(order.values())   # checks when we are done with operation
+
 	num_agvs = len(robotObjects[2])
-	N = 12   # tunable parameter: how many items on AGV before it is shipped
+	N = 2   # tunable parameter: how many items on AGV before it is shipped
 	if math.ceil(sum(order.values()) / N) > num_agvs:
 		print("Error: not enough AGVs for the number of orders")
 		exit()
 
 	q = Queue.Queue()	# to send signals between threads
 	t = []				# signal telling which item to grab
-	global g   # signal between AGVs and gantrys
-	g = []
+	global gq   # signal between AGVs and gantrys
+	gq = []
 	conveyor_thread = threading.Thread(target=conveyor_loop, args = (q, t, ))
 	kitting_thread = threading.Thread(target=kitting_loop, args=(q, t, N, ))
 	gantry_thread = threading.Thread(target=gantry_loop, args=(q, t, ))
@@ -1214,6 +1243,8 @@ if __name__ == '__main__':
 	# prevent execution of rest of main file until threads are finished
 	kitting_thread.join()
 	conveyor_thread.join()
-	gantry_thread().join()
+	gantry_thread.join()
+
+	print('done')
 
 	

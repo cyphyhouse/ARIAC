@@ -89,7 +89,7 @@ belt_models:
       pose:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
-  assembly_battery_red:
+  assembly_sensor_red:
     2.0:
       pose:
         xyz: [0.0, 4.3, 0.92]
