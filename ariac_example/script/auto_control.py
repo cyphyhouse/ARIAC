@@ -798,8 +798,8 @@ class AGV_module():
 	# Input: A - AGVObject of specified AGV
 	# Returns x-y coordinates of next available spot on specified AGV
 	def get_new_loc(self, A):
-		# (x,y) of top-left item position for 12-item layout
-		top_left = (A.cur_pos[0]-0.014, A.cur_pos[1]-1.5*AGV_COL_SPACE)
+		# (x,y) of top-left item position for 8-item layout
+		top_left = (A.cur_pos[0]-0.014 + AGV_ROW_SPACE, A.cur_pos[1]-1.5*AGV_COL_SPACE)
 		return (top_left[0] + AGV_ROW_SPACE*math.floor(A.num_items/4), top_left[1] + AGV_COL_SPACE*(A.num_items % 4))
 		# return (A.cur_pos[0]-AGV_ROW_SPACE + AGV_ROW_SPACE*math.floor(A.num_items/3), A.cur_pos[1]-AGV_COL_SPACE + AGV_COL_SPACE*(A.num_items % 3))
 	
@@ -848,7 +848,7 @@ class Follow_points():
 				self.kitting_state = 6	# done state
 				return False
 
-			start_pose = [robotObjects[3][0].pose[0], 0, 1.5]
+			start_pose = [robotObjects[3][0].pose[0], 0.591, 1.5]
 
 			# mult robot change
 			while not bounds_checking(start_pose[0], start_pose[2], robotObjects[0][0]):
@@ -1224,12 +1224,12 @@ if __name__ == '__main__':
 	# moveit_runner_gantry.gantry_goto_pose([-7.1, 3.1, 1.4, math.pi/2])
 	# exit()
 
-	order = {"assembly_battery_green": 6, "assembly_battery_blue": 6}
+	order = {"assembly_battery_green": 4, "assembly_battery_blue": 4}
 	global total_output
 	total_output = sum(order.values())   # checks when we are done with operation
 
 	num_agvs = len(robotObjects[2])
-	N = 12   # tunable parameter: how many items on AGV before it is shipped
+	N = 8   # tunable parameter: how many items on AGV before it is shipped
 	if math.ceil(sum(order.values()) / N) > num_agvs:
 		print("Error: not enough AGVs for the number of orders")
 		exit()
