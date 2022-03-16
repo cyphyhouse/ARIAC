@@ -976,7 +976,7 @@ class Follow_points():
 		if self.kitting_state == 5:
 			# Iterate through AGVs and move the ones that are ready
 			for agvObject in robotObjects[2]:
-				if agvObject.ready:
+				if agvObject.ready and not agvObject.used:
 					rospy.sleep(2.0)
 					near = True   # change later
 					if near:
@@ -1124,13 +1124,17 @@ class GantryStateMachine():
 			moveit_runner_gantry.gantry_goto_pose([cx, cy, cz+0.1, self.cur_rotation])
 			
 			item_height = get_item_height(self.target)
+
+			moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, self.cur_rotation])
+			moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, math.pi/2])
+			moveit_runner_gantry.gantry_goto_pose([AS1_LOC[0], AS1_LOC[1], 1.4 + item_height, math.pi/2])
 			
-			if self.station == 'as1':
-				moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, self.cur_rotation])
-				moveit_runner_gantry.gantry_goto_pose([AS1_LOC[0], AS1_LOC[1], 1.4 + item_height, math.pi/2])
-			elif self.station == 'as3':
-				moveit_runner_gantry.gantry_goto_pose([cx, AS3_LOC[1], 1.4 + item_height, self.cur_rotation])
-				moveit_runner_gantry.gantry_goto_pose([AS3_LOC[0], AS3_LOC[1], 1.4 + item_height, math.pi/2])
+			# if self.station == 'as1':
+			# 	moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, self.cur_rotation])
+			# 	moveit_runner_gantry.gantry_goto_pose([AS1_LOC[0], AS1_LOC[1], 1.4 + item_height, math.pi/2])
+			# elif self.station == 'as3':
+			# 	moveit_runner_gantry.gantry_goto_pose([cx, AS3_LOC[1], 1.4 + item_height, self.cur_rotation])
+			# 	moveit_runner_gantry.gantry_goto_pose([AS3_LOC[0], AS3_LOC[1], 1.4 + item_height, math.pi/2])
 		
 			# drop item
 			self.gm.deactivate_gripper()
@@ -1154,7 +1158,7 @@ class GantryStateMachine():
 			# if done with whole sequence, return True
 			# else return to state 1
 			if self.num_delivered < total_output:
-				self.gantry_state = 1
+				self.gantry_state = 0
 				return False
 
 			return True
@@ -1229,7 +1233,7 @@ if __name__ == '__main__':
 	total_output = sum(order.values())   # checks when we are done with operation
 
 	num_agvs = len(robotObjects[2])
-	N = 8   # tunable parameter: how many items on AGV before it is shipped
+	N = 4   # tunable parameter: how many items on AGV before it is shipped
 	if math.ceil(sum(order.values()) / N) > num_agvs:
 		print("Error: not enough AGVs for the number of orders")
 		exit()
