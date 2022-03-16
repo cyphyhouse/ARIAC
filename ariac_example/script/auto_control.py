@@ -604,7 +604,7 @@ class MoveitRunner():
 		if x > self.robotObject.x_rail_range[1] or x < self.robotObject.x_rail_range[0]:
 			print("gantry_goto_pose error: outside x-range bounds")
 			return False
-		if y > self.robotObject.y_rail_range[1] or y < self.robotObject.y_rail_range[0]:
+		if y > self.robotObject.y_rail_range[1]+0.4 or y < self.robotObject.y_rail_range[0]-0.4:
 			print("gantry_goto_pose error: outside y-range bounds")
 			return False
 		# mult robot
@@ -694,6 +694,36 @@ class MoveitRunner():
 		self.groups['gantry_full'].stop()
 
 		return True
+	
+	def goto_agv1(self):
+		cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
+
+		cur_joint_pose[0] = 4.8
+		cur_joint_pose[1] = math.pi
+		cur_joint_pose[2] = -0.64
+		cur_joint_pose[3] = 1.90
+		cur_joint_pose[4] = -1*cur_joint_pose[2] - cur_joint_pose[3] - math.pi/2
+		cur_joint_pose[5] = -math.pi/2
+		cur_joint_pose[6] = 0
+
+
+		self.groups['kitting_arm'].go(cur_joint_pose, wait=True)
+		self.groups['kitting_arm'].stop()
+
+	def goto_agv4(self):
+		cur_joint_pose = moveit_runner_kitting.groups['kitting_arm'].get_current_joint_values()
+
+		cur_joint_pose[0] = -4.8
+		cur_joint_pose[1] = math.pi
+		cur_joint_pose[2] = -0.64
+		cur_joint_pose[3] = 1.90
+		cur_joint_pose[4] = -1*cur_joint_pose[2] - cur_joint_pose[3] - math.pi/2
+		cur_joint_pose[5] = -math.pi/2
+		cur_joint_pose[6] = 0
+
+
+		self.groups['kitting_arm'].go(cur_joint_pose, wait=True)
+		self.groups['kitting_arm'].stop()
 
 class GripperManager():
 	def __init__(self, ns):
@@ -934,6 +964,15 @@ class Follow_points():
 			self.at_agv = closest_agv   # save this now so we can update info later
 			print("dropping item at ", str(self.at_agv.name))
 
+			if self.at_agv.name == 'agv1':
+				self.moveit_runner_kitting.goto_agv1()
+				self.kitting_state = 4
+				return False
+			if self.at_agv.name == 'agv4':
+				self.moveit_runner_kitting.goto_agv4()
+				self.kitting_state = 4
+				return False
+
 			drop_height = 0.85
 			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, drop_height)   # mult robot change
 			if not move_success:
@@ -1053,6 +1092,27 @@ class GantryStateMachine():
 			# 	return False
 			agvObject = self.cur_agv
 
+			models_detected = agv_sensors(agvObject)   # list of items detected by each agv-sensor
+			if len(models_detected) != 0:
+				self.target = models_detected.pop(0).type
+			else:
+				self.gantry_state = 5
+
+			station = get_station(agvObject)
+
+			# read from trial config file to change hardcoded value
+			for i in range(1,11):
+				source_frame = 'logical_camera_' + str(agvObject.name) + '_' + station + '_frame'
+				target_frame = str('logical_camera_' + agvObject.name + '_' + station + '_' + self.target + '_' + str(i) + '_frame')
+				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
+				if world_pose is not None:
+					print(target_frame)
+					break
+
+			if world_pose is None:
+				self.gantry_state = 1
+				return False
+
 			# go to intermediate waypoint to avoid collisions with AGV
 			cz = gantry_arm.get_current_pose().pose.position.z
 			if agvObject.name == 'agv1':
@@ -1071,29 +1131,6 @@ class GantryStateMachine():
 				self.station = 'as3'
 				self.cur_rotation = math.pi
 				self.moveit_runner_gantry.gantry_goto_pose([-5.6,-3.02,cz,self.cur_rotation])
-
-			models_detected = agv_sensors(agvObject)   # list of items detected by each agv-sensor
-			if len(models_detected) != 0:
-				self.target = models_detected.pop(0).type
-			else:
-				self.gantry_state = 5
-
-			station = get_station(agvObject)
-			
-			# read from trial config file to change hardcoded value
-			for i in range(1,11):
-				source_frame = 'logical_camera_' + str(agvObject.name) + '_' + station + '_frame'
-				target_frame = str('logical_camera_' + agvObject.name + '_' + station + '_' + self.target + '_' + str(i) + '_frame')
-				# target_frame = 'logical_camera_conveyor_' + self.target + '_' + str(i) + '_frame'
-				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
-				if world_pose is not None:
-					print(target_frame)
-					print(world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z)
-					break
-
-			if world_pose is None:
-				self.gantry_state = 0
-				return False
 
 			# move to gantry to target item + buffer height
 			item_height = get_item_height(self.target)
@@ -1233,7 +1270,7 @@ if __name__ == '__main__':
 	total_output = sum(order.values())   # checks when we are done with operation
 
 	num_agvs = len(robotObjects[2])
-	N = 4   # tunable parameter: how many items on AGV before it is shipped
+	N = 2   # tunable parameter: how many items on AGV before it is shipped
 	if math.ceil(sum(order.values()) / N) > num_agvs:
 		print("Error: not enough AGVs for the number of orders")
 		exit()
