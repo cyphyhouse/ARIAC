@@ -623,7 +623,7 @@ class MoveitRunner():
 		# cur_gantry_pose[0] = x + gantryRobot.shoulder_ee_last_dim*math.sin(torso_rotation)   # assuming pan_joint = 0
 		if torso_rotation == 0:
 			cur_gantry_pose[0] += gantryRobot.shoulder_ee_last_dim
-		elif torso_rotation == math.pi:
+		elif torso_rotation == math.pi or torso_rotation == -math.pi:
 			cur_gantry_pose[0] -= gantryRobot.shoulder_ee_last_dim
 		elif torso_rotation == math.pi/2:
 			cur_gantry_pose[1] -= gantryRobot.shoulder_ee_last_dim
@@ -637,7 +637,7 @@ class MoveitRunner():
 		# small adjustment for torso rails to give arm enough room to operate
 		if torso_rotation == 0:
 			cur_gantry_pose[1] += 0.0
-		elif torso_rotation == math.pi:
+		elif torso_rotation == math.pi or torso_rotation == -math.pi:
 			cur_gantry_pose[1] -= 0.0
 		elif torso_rotation == math.pi/2:
 			cur_gantry_pose[0] += 0.0
@@ -660,7 +660,7 @@ class MoveitRunner():
 		if torso_rotation == 0:
 			alpha, beta = find_alphabeta_gantry([y-w1_to_ee[1], z-w1_to_ee[2]], [y, 2])
 			# alpha, beta = find_alphabeta_gantry([y+0.1158, z+0.1], [y, 2])	  # adjustments for wrist1 -> ee difference
-		elif torso_rotation == math.pi:
+		elif torso_rotation == math.pi or torso_rotation == -math.pi:
 			alpha, beta = find_alphabeta_gantry([y-(w1_to_ee[1] * -1), z-w1_to_ee[2]], [y, 2])
 		elif torso_rotation == -math.pi/2:
 			alpha, beta = find_alphabeta_gantry([x-w1_to_ee[0], z-w1_to_ee[2]], [x, 2])
@@ -1114,6 +1114,8 @@ class GantryStateMachine():
 				return False
 
 			# go to intermediate waypoint to avoid collisions with AGV
+			cx = gantry_arm.get_current_pose().pose.position.x
+			cy = gantry_arm.get_current_pose().pose.position.y
 			cz = gantry_arm.get_current_pose().pose.position.z
 			if agvObject.name == 'agv1':
 				self.station = 'as1'
@@ -1126,15 +1128,17 @@ class GantryStateMachine():
 			elif agvObject.name == 'agv3':
 				self.station = 'as3'
 				self.cur_rotation = 0
-				self.moveit_runner_gantry.gantry_goto_pose([-5.6,-3.02,cz,self.cur_rotation])
+				self.moveit_runner_gantry.gantry_goto_pose([cx,cy,cz,self.cur_rotation])
+				self.moveit_runner_gantry.gantry_goto_pose([cx,-3.02,cz,self.cur_rotation])
 			else:
 				self.station = 'as3'
-				self.cur_rotation = math.pi
-				self.moveit_runner_gantry.gantry_goto_pose([-5.6,-3.02,cz,self.cur_rotation])
+				self.cur_rotation = -math.pi
+				self.moveit_runner_gantry.gantry_goto_pose([cx,-3.02,cz,self.cur_rotation])
 
 			# move to gantry to target item + buffer height
 			item_height = get_item_height(self.target)
 			height_buffer = 0.03
+			print('world pose:', world_pose.pose.position)
 			self.moveit_runner_gantry.gantry_goto_pose([world_pose.pose.position.x, world_pose.pose.position.y, world_pose.pose.position.z + item_height + height_buffer, self.cur_rotation])
 
 			self.gantry_state = 3
@@ -1183,7 +1187,7 @@ class GantryStateMachine():
 			cx = gantry_arm.get_current_pose().pose.position.x
 			cy = gantry_arm.get_current_pose().pose.position.y
 			cz = gantry_arm.get_current_pose().pose.position.z
-			moveit_runner_gantry.gantry_goto_pose([cx + 1.1, cy, cz, math.pi/2])
+			moveit_runner_gantry.gantry_goto_pose([cx + 2.5, cy, cz, math.pi/2])
 
 			clear_briefcase()
 
@@ -1195,7 +1199,7 @@ class GantryStateMachine():
 			# if done with whole sequence, return True
 			# else return to state 1
 			if self.num_delivered < total_output:
-				self.gantry_state = 0
+				self.gantry_state = 1
 				return False
 
 			return True
