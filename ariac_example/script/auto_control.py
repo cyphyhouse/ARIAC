@@ -973,7 +973,7 @@ class Follow_points():
 			# 	self.kitting_state = 4
 			# 	return False
 
-			drop_height = 0.85
+			drop_height = 0.88
 			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, drop_height)   # mult robot change
 			if not move_success:
 				print("This AGV is out of range!")
@@ -1103,6 +1103,8 @@ class GantryStateMachine():
 			# read from trial config file to change hardcoded value
 			for i in range(1,11):
 				source_frame = 'logical_camera_' + str(agvObject.name) + '_' + station + '_frame'
+				print(station)
+				print(self.target)
 				target_frame = str('logical_camera_' + agvObject.name + '_' + station + '_' + self.target + '_' + str(i) + '_frame')
 				world_pose = tf2_listener.get_transformed_pose(source_frame, target_frame)
 				if world_pose is not None:
@@ -1127,9 +1129,9 @@ class GantryStateMachine():
 				self.moveit_runner_gantry.gantry_goto_pose([-5.6,3.02,cz,self.cur_rotation])
 			elif agvObject.name == 'agv3':
 				self.station = 'as3'
-				self.cur_rotation = 0
+				self.cur_rotation = math.pi
 				self.moveit_runner_gantry.gantry_goto_pose([cx,cy,cz,self.cur_rotation])
-				self.moveit_runner_gantry.gantry_goto_pose([cx,-3.02,cz,self.cur_rotation])
+				self.moveit_runner_gantry.gantry_goto_pose([cx,0,cz,self.cur_rotation])
 			else:
 				self.station = 'as3'
 				self.cur_rotation = -math.pi
@@ -1277,7 +1279,7 @@ if __name__ == '__main__':
 	total_output = sum(order.values())   # checks when we are done with operation
 
 	num_agvs = len(robotObjects[2])
-	N = 2   # tunable parameter: how many items on AGV before it is shipped
+	N = 4   # tunable parameter: how many items on AGV before it is shipped
 	if math.ceil(sum(order.values()) / N) > num_agvs:
 		print("Error: not enough AGVs for the number of orders")
 		exit()
