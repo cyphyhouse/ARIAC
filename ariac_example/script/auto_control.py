@@ -964,14 +964,14 @@ class Follow_points():
 			self.at_agv = closest_agv   # save this now so we can update info later
 			print("dropping item at ", str(self.at_agv.name))
 
-			if self.at_agv.name == 'agv1':
-				self.moveit_runner_kitting.goto_agv1()
-				self.kitting_state = 4
-				return False
-			if self.at_agv.name == 'agv4':
-				self.moveit_runner_kitting.goto_agv4()
-				self.kitting_state = 4
-				return False
+			# if self.at_agv.name == 'agv1':
+			# 	self.moveit_runner_kitting.goto_agv1()
+			# 	self.kitting_state = 4
+			# 	return False
+			# if self.at_agv.name == 'agv4':
+			# 	self.moveit_runner_kitting.goto_agv4()
+			# 	self.kitting_state = 4
+			# 	return False
 
 			drop_height = 0.85
 			move_success = self.moveit_runner_kitting.goto_pose(drop_x, drop_y, drop_height)   # mult robot change
@@ -1165,6 +1165,9 @@ class GantryStateMachine():
 			moveit_runner_gantry.gantry_goto_pose([cx, cy, cz+0.1, self.cur_rotation])
 			
 			item_height = get_item_height(self.target)
+
+			if self.cur_agv.name == 'agv3' or self.cur_agv.name == 'agv4':
+				moveit_runner_gantry.gantry_goto_pose([cx+1, cy, cz+0.1, self.cur_rotation])
 
 			moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, self.cur_rotation])
 			moveit_runner_gantry.gantry_goto_pose([cx, AS1_LOC[1], 1.4 + item_height, math.pi/2])
