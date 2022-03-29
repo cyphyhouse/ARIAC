@@ -22,13 +22,13 @@ sensors:
   logical_camera_agv1_as1:
     type: logical_camera
     pose:
-      xyz: [-5.378, 4.275, 1]
+      xyz: [-5.378, 4.675, 1]
       rpy: [3.141593, 1.570792, 0.00000]
   
   logical_camera_agv1_as2:
     type: logical_camera
     pose:
-      xyz: [-10.590, 4.275, 1]
+      xyz: [-10.590, 4.675, 1]
       rpy: [3.141593, 1.570792, 0.0000]
   
   logical_camera_agv2_as1:
@@ -58,13 +58,13 @@ sensors:
   logical_camera_agv4_as3:
     type: logical_camera
     pose:
-      xyz: [-5.378, -4.296, 1]
+      xyz: [-5.378, -4.696, 1]
       rpy: [3.141593, 1.570792, 0.00000]
   
   logical_camera_agv4_as4:
     type: logical_camera
     pose:
-      xyz: [-10.590, -4.296, 1]
+      xyz: [-10.590, -4.696, 1]
       rpy: [3.141593, 1.570792, 0.0000]
 
   logical_camera_station1:
