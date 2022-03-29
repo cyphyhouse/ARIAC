@@ -23,7 +23,7 @@ rosrun rqt_gui rqt_gui robot_description:=/ariac/kitting/robot_description
 
 ## How to run a full simulation
 1. Open up a new terminal and resource the setup file (command in step 2)
-2. Open up the test script (cd ariac_ws/src/ARIAC/ariac_example/script/ariac_test.py)
+2. Open up the test script (cd ariac_ws/src/ARIAC/ariac_example/script/auto_control.py)
 3. Back in terminal, you can run the script with
 ```
 rosrun ariac_example auto_control.py default_world.json
