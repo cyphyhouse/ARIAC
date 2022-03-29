@@ -43,13 +43,14 @@ template_files = [
 ]
 
 arm_template_file = os.path.join(kitting_dir, 'kitting.urdf.xacro.template')
+# arm_template_file2 = os.path.join(kitting_dir, 'kitting2.urdf.xacro.template')
 
 arm_configs = {
     'kitting': {
         'arm_type': 'ur10',
         'pose': {
             'xyz': [0.3, 0.92, 0.9],
-            'rpy': [0.0, 0.0, 0.0]
+            'rpy': [0.5, 0.4, 0.8]
         },
         'default_initial_joint_states': {
             'elbow_joint': 1.74,
@@ -62,6 +63,24 @@ arm_configs = {
         }
     },
 }
+# arm_configs2 = {
+#     'kitting2': {
+#         'arm_type': 'ur10',
+#         'pose': {
+#             'xyz': [0.3, 4.92, 0.9],
+#             'rpy': [0.5, 0.4, 0.8]
+#         },
+#         'default_initial_joint_states': {
+#             'elbow_joint': 1.74,
+#             'linear_arm_actuator_joint': 0,
+#             'shoulder_lift_joint': -1.25,
+#             'shoulder_pan_joint': 0,
+#             'wrist_1_joint': -2.66,
+#             'wrist_2_joint': -1.51,
+#             'wrist_3_joint': 0,
+#         }
+#     },
+# }
 
 
 possible_products = [
@@ -94,6 +113,7 @@ default_agv_origins = {
     'agv2': [-2.265685, 1.367643, 0],
     'agv3': [-2.265685, -1.333917, 0],
     'agv4': [-2.265685, -4.696062, 0],
+    'agv5': [-2.265685, -7.696062, 0],
 }
 
 
@@ -244,7 +264,7 @@ default_bin_origins = {
 
 # Dictionary
 default_station_origins = {
-    'as1': [-7.3, 3, 0],
+    'as1': [-9.3, 3, 0],
     'as2': [-12.3, 3, 0],
     'as3': [-7.3, -3, 0],
     'as4': [-12.3, -3, 0],
@@ -927,6 +947,7 @@ def create_bin_infos():
 def create_station_infos():
     station_infos = {}
     for station_name, xyz in default_station_origins.items():
+        # print("         hi        ")
         station_infos[station_name] = PoseInfo(xyz, [0, 0, 0])
     return station_infos
 
@@ -984,6 +1005,7 @@ def create_options_info(options_dict):
 def prepare_template_data(config_dict, args):
     template_data = {
         'arms': [create_arm_info(name, conf) for name, conf in arm_configs.items()],
+        # 'arms2': [create_arm_info(name, conf) for name, conf in arm_configs2.items()],
         'robot_camera': {},
         'sensors': create_sensor_infos(default_sensors, allow_protected_sensors=True),
         'agv_infos': {},
@@ -1098,10 +1120,15 @@ def generate_files(template_data):
         files[template_file] = em.expand(data, template_data)
     # Generate files for each arm
     for arm_info in template_data['arms']:
-        template_data['arm'] = arm_info
+        # template_data['arm'] = arm_info
         with open(arm_template_file, 'r') as f:
             data = f.read()
         files[arm_info.name + '.urdf.xacro'] = em.expand(data, template_data)
+    # for arm_info in template_data['arms2']:
+    #     # template_data['arm'] = arm_info
+    #     with open(arm_template_file2, 'r') as f:
+    #         data = f.read()
+    #     files[arm_info.name + '.urdf.xacro'] = em.expand(data, template_data)
     return files
     return files
 
@@ -1147,28 +1174,28 @@ def main(sysargv=None):
                 f.write(content)
     cmd = [
         # sample world
-        # 'roslaunch',
-        # os.path.join(args.output, 'gear.launch'),
-        # 'world_path:=' + os.path.join(args.output, 'ariac.world'),
-        # 'gear_urdf_xacro:=' + os.path.join(args.output, 'gear.urdf.xacro'),
-        # 'gantry_urdf_xacro:=' + os.path.join(args.output, 'gantry.urdf.xacro'),
-        # 'kitting_urdf_xacro:=' + os.path.join(args.output, 'kitting.urdf.xacro'),
+        'roslaunch',
+        os.path.join(args.output, 'gear.launch'),
+        'world_path:=' + os.path.join(args.output, 'ariac.world'),
+        'gear_urdf_xacro:=' + os.path.join(args.output, 'gear.urdf.xacro'),
+        'gantry_urdf_xacro:=' + os.path.join(args.output, 'gantry.urdf.xacro'),
+        'kitting_urdf_xacro:=' + os.path.join(args.output, 'kitting.urdf.xacro'),
 
         # ariac_world1
         # 'roslaunch',
-        # os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world1/', 'gear.launch'),
+        # os.path.join('/home/yubink2/ariac_generated_worlds/ariac_world1/', 'gear.launch'),
         # 'world_path:=' + os.path.join('args.output', 'ariac.world'),
-        # 'gear_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world1/', 'gear.urdf.xacro'),
-        # 'gantry_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world1/', 'gantry.urdf.xacro'),
-        # 'kitting_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world1/', 'kitting.urdf.xacro'),
+        # 'gear_urdf_xacro:=' + os.path.join('/home/yubink2/ariac_generated_worlds/ariac_world1/', 'gear.urdf.xacro'),
+        # 'gantry_urdf_xacro:=' + os.path.join('/home/yubink2/ariac_generated_worlds/ariac_world1/', 'gantry.urdf.xacro'),
+        # 'kitting_urdf_xacro:=' + os.path.join('/home/yubink2/ariac_generated_worlds/ariac_world1/', 'kitting.urdf.xacro'),
 
         # ariac_world2
-        'roslaunch',
-        os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gear.launch'),
-        'world_path:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'ariac.world'),
-        'gear_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gear.urdf.xacro'),
-        'gantry_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'gantry.urdf.xacro'),
-        'kitting_urdf_xacro:=' + os.path.join('/home/dxwu2/ariac_generated_worlds/ariac_world2/', 'kitting.urdf.xacro'),
+        # 'roslaunch',
+        # os.path.join('/home/yubink2/ariac_generated_files/ariac_world2/', 'gear.launch'),
+        # 'world_path:=' + os.path.join('/home/yubink2/ariac_generated_files/ariac_world2/', 'ariac.world'),
+        # 'gear_urdf_xacro:=' + os.path.join('/home/yubink2/ariac_generated_files/ariac_world2/', 'gear.urdf.xacro'),
+        # 'gantry_urdf_xacro:=' + os.path.join('/home/yubink2/ariac_generated_files/ariac_world2/', 'gantry.urdf.xacro'),
+        # 'kitting_urdf_xacro:=' + os.path.join('/home/yubink2/ariac_generated_files/ariac_world2/', 'kitting.urdf.xacro'),
     ]
     if args.log_to_file:
         cmd.append('gazebo_ros_output:=log')

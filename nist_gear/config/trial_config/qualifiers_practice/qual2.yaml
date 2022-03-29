@@ -37,7 +37,7 @@ agv_infos:
           xyz: [0.0, 0.2, 0]
           rpy: [0, 0, 0]
   agv2:
-    location: as1
+    location: as2
     products:
       part_0:
         type: assembly_battery_green

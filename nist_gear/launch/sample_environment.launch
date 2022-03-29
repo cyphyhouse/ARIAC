@@ -28,11 +28,10 @@
           $(arg fill_demo_shipment_args)
           --development-mode
 	  --visualize-sensor-views
-          -o $(env HOME)/.cache/ariac
+
           -f $(find nist_gear)/config/trial_config/qualifiers_practice/qual1.yaml
           $(find nist_gear)/config/user_config/sample_user_config.yaml
           " required="true" output="screen" />
-
   <group ns='ariac/gantry'>
     <include file="$(find gantry_moveit_config)/launch/moveit_rviz.launch">
       <arg name="rviz_config" value="$(find gantry_moveit_config)/launch/moveit.rviz"/>

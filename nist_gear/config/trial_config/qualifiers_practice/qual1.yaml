@@ -23,6 +23,7 @@ options:
   gazebo_state_logging: true
 time_limit: 500
 
+
 #location of each agv and products on agvs when the simulation starts
 agv_infos:
   agv1:
@@ -42,21 +43,21 @@ orders:
     assembly_robot_health: 1 
     announcement_condition: time
     announcement_condition_value: 0.0
-    kitting:
-      shipment_count: 2
-      agvs: [agv2, agv3]
-      destinations: [as1, as4]
-      products:
-        part_0:
-          type: assembly_battery_blue
-          pose:
-            xyz: [0.1, 0.1, 0]
-            rpy: [0, 0, 0]
-        part_1:
-          type: assembly_battery_green
-          pose:
-            xyz: [-0.15, -0.1, 0]
-            rpy: [0, 0, 'pi/4']
+#    kitting:
+#      shipment_count: 2
+#      agvs: [agv2, agv3]
+#      destinations: [as1, as4]
+#      products:
+#        part_0:
+#          type: assembly_battery_blue
+#          pose:
+#            xyz: [0.1, 0.1, 0]
+#            rpy: [0, 0, 0]
+#        part_1:
+#          type: assembly_battery_green
+#          pose:
+#            xyz: [-0.15, -0.1, 0]
+#            rpy: [0, 0, 'pi/4']
 
 
 models_over_bins:
@@ -100,18 +101,18 @@ belt_models:
         xyz: [0.0, 4.3, 0.92]
         rpy: [0, 0, 0]
 
-drops:
-  drop_regions:
-    shipping_box_0_impeding:
-      frame: agv3::kit_tray_3
-      min:
-        xyz: [-0.3, -0.3, 0.0]
-      max:
-        xyz: [0.3, 0.3, 0.5]
-      destination:
-        xyz: [0.1, 0.3, 0.05]
-        rpy: [0, 0, 0.2]
-      product_type_to_drop: assembly_battery_blue
+#drops:
+#  drop_regions:
+#    shipping_box_0_impeding:
+#      frame: agv3::kit_tray_3
+#      min:
+#        xyz: [-0.3, -0.3, 0.0]
+#      max:
+#        xyz: [0.3, 0.3, 0.5]
+#      destination:
+#        xyz: [0.1, 0.3, 0.05]
+#        rpy: [0, 0, 0.2]
+#      product_type_to_drop: assembly_battery_blue
 
 sensor_blackout:
   product_count: 2 #sensor blackout triggered after second product is placed

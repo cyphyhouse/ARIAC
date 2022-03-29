@@ -91,7 +91,7 @@
           izz="1"/>
     </inertial>
   </link>
-    
+
   <gazebo reference="long_rail_2">
     <material>Gazebo/DarkGrey</material>
   </gazebo>
@@ -124,7 +124,7 @@
           izz=".1"/>
     </inertial>
   </link>
-    
+
   <gazebo reference="small_rail">
     <material>Gazebo/GreyTransparent</material>
   </gazebo>
@@ -139,7 +139,7 @@
         velocity="1"
         effort="100000"/>
   </joint>
-  
+
   <link name="torso_base">
     <visual>
       <geometry>
@@ -197,7 +197,7 @@
         iyy="1" iyz="0.0"
         izz=".1"/>
     </inertial>
-    
+
     <gazebo>
       <material>
         <script>
@@ -222,7 +222,7 @@
         velocity="${pi/4}"
         effort="100000"/>
   </joint>
-  
+
   <link name="torso_tray">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -255,20 +255,20 @@
     <axis xyz="0 0 1"/>
     <limit velocity="6.5" effort="1000" lower="0" upper="0" />
   </joint>
-  
+
 
 
   <!-- Attach arm to torso -->
   <xacro:ur10_robot parent="torso_main" prefix="${gantry_arm}">
     <origin xyz="0.51 0.0 1.3" rpy="0 1.57 0" />
   </xacro:ur10_robot>
-      
+
   <!-- Load UR10 transmission -->
   <xacro:ur_arm_transmission prefix="${gantry_arm}" />
-  
+
   <!-- Add vacuum gripper to the arm -->
   <xacro:property name="gantry_wrist_link" value="${gantry_arm}wrist_3_link" />
-  
+
   <xacro:create_vacuum_gripper prefix="${gantry_arm}" wrist_link="${gantry_wrist_link}" arm_namespace="/ariac/gantry/arm">
     <origin xyz="0 0.1 0" rpy="${90 * 0.0174533} 0 0" />
     <grippable_model_types>
@@ -358,7 +358,7 @@
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
-  
+
   <transmission name="torso_rail_transmission">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="torso_rail_joint">
@@ -368,7 +368,7 @@
       <mechanicalReduction>10</mechanicalReduction>
     </actuator>
   </transmission>
-  
+
   <transmission name="torso_base_main_transmission">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="torso_base_main_joint">
@@ -378,7 +378,7 @@
       <mechanicalReduction>10</mechanicalReduction>
     </actuator>
   </transmission>
-  
+
   <transmission name="torso_main_torso_tray_transmission">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="torso_main_torso_tray_joint">
@@ -405,7 +405,7 @@
       <update_rate>20</update_rate>
       <alwaysOn>true</alwaysOn>
       <clear_tray_service_name>/ariac/gantry_tray/clear_tray</clear_tray_service_name>
-      <frameName>gantry_contact_frame</frameName>  
+      <frameName>gantry_contact_frame</frameName>
       </plugin>
     </sensor>
   </gazebo> -->
@@ -419,9 +419,9 @@
       <update_rate>20</update_rate>
       <alwaysOn>true</alwaysOn>
       <clear_tray_service_name>/ariac/gantry_tray/clear_tray</clear_tray_service_name>
-      <frameName>gantry_contact_frame</frameName>  
+      <frameName>gantry_contact_frame</frameName>
       </plugin>
-  </gazebo> 
+  </gazebo>
   -->
 
 
@@ -437,7 +437,7 @@
       <plugin name="gantry_tray_plugin" filename="libROSAriacGantryTrayPlugin.so"/>
     </sensor>
     <material>Gazebo/GreyTransparent</material>
-  </gazebo> 
+  </gazebo>
   -->
 
   <gazebo>

@@ -85,11 +85,9 @@ namespace gazebo
 
       /// \brief Object type.
     public:
-#if GAZEBO_MAJOR_VERSION == 11
-      ignition::math::AxisAlignedBox dropRegion;
-#else
+
       ignition::math::Box dropRegion;
-#endif
+
 
       /// \brief Destination where objects are teleported to after a drop
     public:
@@ -423,11 +421,9 @@ void VacuumGripperPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
       sdf::ElementPtr typeElement = dropRegionElem->GetElement("type");
       std::string type = typeElement->Get<std::string>();
 
-#if GAZEBO_MAJOR_VERSION == 11
-      auto dropRegion = ignition::math::AxisAlignedBox(min, max);
-#else
+
       ignition::math::Box dropRegion = ignition::math::Box(min, max);
-#endif
+
       ignition::math::Pose3d destination = dstElement->Get<ignition::math::Pose3d>();
 
       nist_gear::DropProduct msgDropProduct;
@@ -654,13 +650,9 @@ void VacuumGripperPlugin::OnUpdate()
             // Teleport it to the destination.
             this->dataPtr->dropAttachedModel->SetWorldPose(objDest);
             this->dataPtr->dropAttachedModel->SetLinearVel(ignition::math::Vector3d::Zero);
-#if GAZEBO_MAJOR_VERSION >= 9
-            // Set zero force to stop acceleration
-            for(auto link : this->dataPtr->dropAttachedModel->GetLinks())
-                link->SetForce(ignition::math::Vector3d::Zero);
-#else
+
             this->dataPtr->dropAttachedModel->SetLinearAccel(ignition::math::Vector3d::Zero);
-#endif
+
 
             this->dataPtr->dropped_objects.push_back(this->dataPtr->attachedObjType);
 

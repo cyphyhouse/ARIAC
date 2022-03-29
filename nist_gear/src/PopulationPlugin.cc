@@ -415,13 +415,9 @@ void PopulationPlugin::OnUpdate()
       // Move it to the target pose.
       modelPtr->SetWorldPose(obj.pose);
       modelPtr->SetLinearVel(ignition::math::Vector3d::Zero);
-#if GAZEBO_MAJOR_VERSION >= 9
-      // Set zero force to stop acceleration
-      for(auto link : modelPtr->GetLinks())
-          link->SetForce(ignition::math::Vector3d::Zero);
-#else
+
       modelPtr->SetLinearAccel(ignition::math::Vector3d::Zero);
-#endif
+
       gzdbg << "Object [" << modelName << "] on belt" << std::endl;
     }
 
