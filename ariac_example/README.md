@@ -1,6 +1,6 @@
 # Getting Started/Running the Script
 
-## How to open the environment (ariac_test.py):
+## How to open the environment:
 1. Open up the launch file (cd ariac_ws/src/ARIAC/nist_gear/launch/sample_environment.launch) and make sure that lines 34-43 (the two group tags near the end of the file) are NOT commented out. These are needed to enable MoveIt.
 2. Open up a terminal and run
 ```
@@ -21,6 +21,13 @@ rosrun rqt_gui rqt_gui robot_description:=/ariac/kitting/robot_description
 4. Select /ariac/kitting/controller_manager and kitting_arm/controller
 5. A bunch of sliders should pop up, you can use this to control the joints manually.
 
+## How to run a full simulation
+1. Open up a new terminal and resource the setup file (command in step 2)
+2. Open up the test script (cd ariac_ws/src/ARIAC/ariac_example/script/auto_control.py)
+3. Back in terminal, you can run the script with
+```
+rosrun ariac_example auto_control.py default_world.json
+```
 ## How to control the ktting robot using the test script
 1. Open up a new terminal and resource the setup file (command in step 2)
 2. Open up the test script (cd ariac_ws/src/ARIAC/ariac_example/script/ariac_test.py)
