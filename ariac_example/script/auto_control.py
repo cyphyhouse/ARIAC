@@ -1160,6 +1160,7 @@ def conveyor_loop(q, t):
 		if curState != lastState:
 			print("conveyor state:", conveyorPlan.conveyor_state)
 		lastState = curState
+		rospy.sleep(0.05)
 
 def kitting_loop(q, t, N):
 	kittingFSM = Follow_points(moveit_runner_kitting, kitting_gm, N)
