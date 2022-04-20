@@ -745,37 +745,33 @@ class Conveyor_Sensor_module():
 		# Conveyor State 1: Waiting for a needed item (moving)
 		if self.conveyor_state == 1:
 			detected = False
-			while True:
-				models_detected = get_logical_camera_conveyor_data().models
-				if len(models_detected) == 0:
-					rospy.sleep(0.05)	# how to do this with pthread cond wait?
-					continue
-				for m in models_detected:
-					# if m.type in self.items_needed and self.items_needed[m.type] > 0:
-					if m.type in order and order[m.type] > 0:
-						self.target = m.type
-						detected = True
-						break
-				if detected:
+
+			models_detected = get_logical_camera_conveyor_data().models
+			if len(models_detected) == 0:
+				return False
+			for m in models_detected:
+				if m.type in order and order[m.type] > 0:
+					self.target = m.type
+					detected = True
 					break
+			if not detected:
+				return False
+
 			control_conveyor(0)
 			self.conveyor_state = 2	# conveyor paused
-			# self.kitting_state = 2	# kitting arm moves down to grab item
 			t.append(self.target)
 			return False
 
 		# Conveyor State 2: conveyor paused
 		if self.conveyor_state == 2:
 			# stay in this state until we get a signal from kitting FSM
-			while True:
-				msg = q.get()
-				# operation finished, exit thread
-				if msg == "done":
-					return True
-				elif msg == "run":
-					break
-				else:
-					rospy.sleep(0.05)
+
+			msg = q.get()
+			# operation finished, exit thread
+			if msg == "done":
+				return True
+			elif msg != "run":
+				return False
 			
 			control_conveyor(100)
 			self.conveyor_state = 1
