@@ -1,12 +1,19 @@
 {
     "robots": [
         {
+            "name": "agv1",
+            "type": "agv",
+            "pose": [-2.266, 4.675, 0],
+            "destinations": [[-5.6, 4.675, 0], [-10.590, 4.675, 0]]
+        },
+        {
             "name": "conveyor_belt",
             "type": "conveyor",
             "pose": [-0.573, 0, 0],
             "orient": "y",
             "orient_range": [-5, 5]
         }
+
     ],
     "stationary": [
         {

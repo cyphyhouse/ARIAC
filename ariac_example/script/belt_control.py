@@ -75,13 +75,18 @@ def parse_json(file):
     f = open(file)
     data = json.load(f)
 
-    robotObjects = [[]]
+    robotObjects = [[],[]]
     ur10_upper_arm_len = 0.612
     ur10_forearm_len = 0.5723
     id_count = 0
     for i in data['robots']:
-        if i['type'] == 'conveyor':
-            robotObjects[0].append(ConveyorRobot(i['name'], i['pose'], i['orient'], i['orient_range'], id_count))
+        if i['type'] == 'agv':
+            robotObjects[0].append(AGVRobot(i['name'], i['pose'], i['destinations'], id_count))
+            print(id_count)
+            id_count += 1
+        elif i['type'] == 'conveyor':
+            robotObjects[1].append(ConveyorRobot(i['name'], i['pose'], i['orient'], i['orient_range'], id_count))
+            print(id_count)
             id_count += 1
         else:
             raise Exception("Error: Robot type ", i['type'], " does not exist")
@@ -103,6 +108,41 @@ def conveyor_loop(q, t):
         lastState = curState
         rospy.sleep(0.05)
 
+def new_euclidean_dist(a, b):
+    if len(a) != len(b):
+        raise Exception('Invalid input for euclidean distance!')
+
+    squared_sum = 0
+    for i in range(len(a)):
+        squared_sum += (abs(b[i] - a[i])) ** 2
+
+    return squared_sum ** 0.5
+
+def move_agvs(agvObject, dest):
+	if agvObject.name == 'agv1' or agvObject.name == 'agv2':
+		if dest == 'near':
+			dest = 'as1'
+		else:
+			dest = 'as2'
+	elif agvObject.name == 'agv3' or agvObject.name == 'agv4':
+		if dest == 'near':
+			dest = 'as3'
+		else:
+			dest = 'as4'
+	else:
+		print("Trying to move invalid AGV name. AGV name must be either agv1, agv2, agv3, or agv4.")
+		exit()
+	rospy.wait_for_service('/ariac/' + agvObject.name + '/to_' + dest)
+	rospy.ServiceProxy('/ariac/' + agvObject.name + '/to_' + dest, Trigger)()
+
+	# update AGV current position
+	a = agvObject.destinations[0]
+	b = agvObject.destinations[1]
+	if dest == 'near':
+		agvObject.cur_pos = a if new_euclidean_dist(a, agvObject.cur_pos) < new_euclidean_dist(b, agvObject.cur_pos) else b
+	else:
+		agvObject.cur_pos = a if new_euclidean_dist(a, agvObject.cur_pos) > new_euclidean_dist(b, agvObject.cur_pos) else b
+
 class Conveyor_Sensor_module():
     def __init__(self):
         self.conveyor_state = 0
@@ -119,29 +159,20 @@ class Conveyor_Sensor_module():
             self.conveyor_state = 1
             return False
 
-
-
         # Conveyor State 1: Waiting for a needed item (moving)
         if self.conveyor_state == 1:
-            print("entering state 1")
             detected = False
-            models_detected = get_logical_camera_conveyor_data().models  # not getting the message?!
-            print(len(models_detected))
-
-            # if len(models_detected) == 0:
-            #     print("no model detected")
-            #     return False
+            models_detected = get_logical_camera_conveyor_data().models
 
             for m in models_detected:
-                print("in for loop")
                 # if m.type in order and order[m.type] > 0:
                 self.target = m.type
                 detected = True
-                print("model detected")
+                print("models detected")
                 break
 
             if not detected:
-                print("not detected")
+                print("models not detected")
                 return False
 
             rospy.sleep(0.05)
@@ -154,21 +185,40 @@ class Conveyor_Sensor_module():
 
         # Conveyor State 2: conveyor paused
         if self.conveyor_state == 2:
-            print("in state 2")
             # stay in this state until we get a signal from kitting FSM
-            while True:
-                msg = q.get()
-                # operation finished, exit thread
-                if msg == "done":
-                    return True
-                elif msg == "run":
-                    break
-                else:
-                    rospy.sleep(0.05)
+            msg = q.get()
+            # operation finished, exit thread
+            if msg == "done":
+                return True
+            elif msg != "run":
+                return False
 
             control_conveyor(100)
             self.conveyor_state = 1
             return False
+
+
+AGV_ROW_SPACE = 0.20  # x-value of dist between rows on AGV
+AGV_COL_SPACE = 0.12  # y-value of dist between cols on AGV
+
+class AGV_module():
+    def __init__(self, AGVList):
+        # def __init__(self):
+        self.agv_list = AGVList
+
+    # Input: A - AGVObject of specified AGV
+    # Returns x-y coordinates of next available spot on specified AGV
+    def get_new_loc(self, A):
+        # (x,y) of top-left item position for 8-item layout
+        top_left = (A.cur_pos[0] - 0.014 + AGV_ROW_SPACE, A.cur_pos[1] - 1.5 * AGV_COL_SPACE)
+        return (
+        top_left[0] + AGV_ROW_SPACE * math.floor(A.num_items / 4), top_left[1] + AGV_COL_SPACE * (A.num_items % 4))
+
+    def update_agv_info(self, agvObject):
+        self.agv_num_items[agv_num - 1] += 1
+
+    def update_agv_done(self, agv_num):
+        self.used_agvs[agv_num - 1] = True
 
 class Line:
     def __init__(self, pose, orient, orient_range):
@@ -182,6 +232,27 @@ class Line:
             if dim != self.orient:
                 point.append(x[dim])
         return point
+
+class AGVRobot:
+    def __init__(self, name, pose, dst, id_count):
+        # ASSUMPTION: z-range hardcoded for now (twice in this function)
+        self.type = 'agv'
+        self.name = name
+        self.cur_pos = pose
+        self.cur_state = 'start'  # start, near, or far
+        self.start_shape = Line(pose, 2, [0.81, 2])  # starting pose's vertical line
+        self.destinations = []
+        self.shape = []  # list of vertical lines
+        for i in dst:
+            self.destinations.append(i)
+            self.shape.append(Line(i, 2, [0.81, 2]))
+        self.id = id_count
+
+        # For usage in AGV_module -> nvm
+        self.ready = False  # signal denotes ready to move?
+        self.used = False
+        self.num_items = 0
+        self.carrying_items = {}  # item : quantity
 
 class ConveyorRobot:
     def __init__(self, name, pose, orient, orient_range, id_count):
@@ -199,7 +270,7 @@ class ConveyorRobot:
 if __name__ == '__main__':
 
     global robotObjects
-    robotObjects = parse_json(sys.argv[1])  # [conveyor]
+    robotObjects = parse_json(sys.argv[1])  # [agv, conveyor]
 
     print_robot_list(robotObjects)
 
@@ -215,6 +286,15 @@ if __name__ == '__main__':
     t = []  # signal telling which item to grab
     global gq  # signal between AGVs and gantrys
     gq = []
+
+    print("moving agv begin")
+    for agvObject in robotObjects[0]:  # move agv
+        move_agvs(agvObject, 'near')
+        rospy.sleep(4.5)
+        agvObject.cur_state = 'near'
+        gq.append(agvObject)
+    print("moving agv done")
+
     conveyor_thread = threading.Thread(target=conveyor_loop, args=(q, t,))
 
     conveyor_thread.start()
